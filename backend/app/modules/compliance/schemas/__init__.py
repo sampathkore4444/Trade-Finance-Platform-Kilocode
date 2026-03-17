@@ -8,4 +8,18 @@ from app.modules.compliance.schemas.compliance import (
     ComplianceStatusEnum,
 )
 
-__all__ = ["ComplianceCheckBase", "ComplianceCheckResponse", "ComplianceStatusEnum"]
+# Aliases for backward compatibility
+ComplianceCheckCreate = ComplianceCheckBase
+ComplianceCheckUpdate = ComplianceCheckBase
+ComplianceStatus = ComplianceStatusEnum
+ComplianceType = ComplianceStatusEnum
+
+__all__ = [
+    "ComplianceCheckBase",
+    "ComplianceCheckCreate",
+    "ComplianceCheckUpdate",
+    "ComplianceCheckResponse",
+    "ComplianceStatusEnum",
+    "ComplianceStatus",
+    "ComplianceType",
+]
