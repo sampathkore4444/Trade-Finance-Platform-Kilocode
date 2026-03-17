@@ -25,6 +25,7 @@ from app.modules.letter_of_credit.schemas import (
 )
 from app.modules.letter_of_credit.services import lc_service
 from app.modules.letter_of_credit.models import LCType, LCStatus
+from app.core.auth.jwt_handler import jwt_handler
 from app.core.auth.rbac_handler import rbac_handler, Permission
 from app.common.exceptions import NotFoundException, BusinessRuleViolationException
 
@@ -37,14 +38,15 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
     """
-    Get current authenticated user (placeholder).
+    Get current authenticated user from JWT token.
     """
-    # This would decode JWT and get user info
+    token = credentials.credentials
+    payload = jwt_handler.decode_token(token)
     return {
-        "user_id": 1,
-        "username": "admin",
-        "roles": ["system_admin"],
-        "permissions": [],
+        "user_id": payload.get("user_id"),
+        "username": payload.get("sub"),
+        "roles": payload.get("roles", []),
+        "permissions": payload.get("permissions", []),
     }
 
 

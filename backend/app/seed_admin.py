@@ -41,7 +41,7 @@ async def create_admin_user():
 
         # Create default organization
         org = Organization(
-            name="Trade Finance Bank", code="TFB", type="HEADQUARTERS", is_active=True
+            name="Trade Finance Bank", code="TFB", is_active=True
         )
         session.add(org)
         await session.flush()
@@ -57,7 +57,7 @@ async def create_admin_user():
         dept = Department(
             name="Trade Finance Department",
             code="TFD001",
-            branch_id=branch.id,
+            organization_id=org.id,
             is_active=True,
         )
         session.add(dept)
@@ -102,8 +102,9 @@ async def create_admin_user():
 
         # Assign admin role to admin user
         admin_role = next(r for r in roles if r.name == "ADMIN")
-        user_role = user_roles(user_id=admin.id, role_id=admin_role.id)
-        session.add(user_role)
+        await session.execute(
+            user_roles.insert().values(user_id=admin.id, role_id=admin_role.id)
+        )
 
         await session.commit()
         print("Admin user created successfully!")

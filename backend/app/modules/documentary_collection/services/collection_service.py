@@ -98,8 +98,8 @@ class DocumentaryCollectionService:
         skip: int = 0,
         limit: int = 100,
         status: Optional[CollectionStatus] = None,
-        applicant_name: Optional[str] = None,
-        beneficiary_name: Optional[str] = None,
+        search: Optional[str] = None,
+        collection_type: Optional[str] = None,
     ) -> List[DocumentaryCollection]:
         """
         List documentary collections with optional filters
@@ -109,15 +109,17 @@ class DocumentaryCollectionService:
         if status:
             query = query.where(DocumentaryCollection.status == status)
 
-        if applicant_name:
+        if search:
+            # Search in collection number, drawer name, or drawee name
+            search_pattern = f"%{search}%"
             query = query.where(
-                DocumentaryCollection.applicant_name.ilike(f"%{applicant_name}%")
+                (DocumentaryCollection.collection_number.ilike(search_pattern)) |
+                (DocumentaryCollection.applicant_name.ilike(search_pattern)) |
+                (DocumentaryCollection.beneficiary_name.ilike(search_pattern))
             )
 
-        if beneficiary_name:
-            query = query.where(
-                DocumentaryCollection.beneficiary_name.ilike(f"%{beneficiary_name}%")
-            )
+        if collection_type:
+            query = query.where(DocumentaryCollection.collection_type == collection_type)
 
         query = (
             query.offset(skip)
@@ -127,6 +129,34 @@ class DocumentaryCollectionService:
 
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def count_collections(
+        self,
+        status: Optional[CollectionStatus] = None,
+        search: Optional[str] = None,
+        collection_type: Optional[str] = None,
+    ) -> int:
+        """
+        Count documentary collections with optional filters
+        """
+        query = select(DocumentaryCollection)
+
+        if status:
+            query = query.where(DocumentaryCollection.status == status)
+
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.where(
+                (DocumentaryCollection.collection_number.ilike(search_pattern)) |
+                (DocumentaryCollection.applicant_name.ilike(search_pattern)) |
+                (DocumentaryCollection.beneficiary_name.ilike(search_pattern))
+            )
+
+        if collection_type:
+            query = query.where(DocumentaryCollection.collection_type == collection_type)
+
+        result = await self.db.execute(query)
+        return len(list(result.scalars().all()))
 
     async def update_collection(
         self,

@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBearer
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.core.auth.jwt_handler import get_current_user
@@ -21,6 +22,14 @@ from app.modules.documentary_collection.services import DocumentaryCollectionSer
 
 router = APIRouter(prefix="/collections", tags=["Documentary Collection"])
 security = HTTPBearer()
+
+
+class PaginatedCollectionResponse(BaseModel):
+    items: List[DocumentaryCollectionResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 async def get_collection_service(db=Depends(get_db)):
@@ -48,27 +57,46 @@ async def create_collection(
     return collection
 
 
-@router.get("/", response_model=List[DocumentaryCollectionResponse])
+@router.get("/", response_model=PaginatedCollectionResponse)
 async def list_collections(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     status: Optional[CollectionStatus] = None,
-    applicant_name: Optional[str] = None,
-    beneficiary_name: Optional[str] = None,
+    search: Optional[str] = None,
+    collection_type: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
 ):
     """
-    List all documentary collections with optional filters
+    List all documentary collections with optional filters and pagination
     """
+    # Calculate skip value from page
+    skip = (page - 1) * page_size
+    
+    # Get total count
+    total = await service.count_collections(
+        status=status,
+        search=search,
+        collection_type=collection_type,
+    )
+    
     collections = await service.list_collections(
         skip=skip,
-        limit=limit,
+        limit=page_size,
         status=status,
-        applicant_name=applicant_name,
-        beneficiary_name=beneficiary_name,
+        search=search,
+        collection_type=collection_type,
     )
-    return collections
+    
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+    
+    return {
+        "items": collections,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
 
 
 @router.get("/{collection_id}", response_model=DocumentaryCollectionResponse)

@@ -35,15 +35,7 @@ from app.modules.notifications.routers import router as notifications_router
 from app.core.security.audit_logger import AuditLogger
 
 
-@app.get("/health")
-async def health_check():
-    """
-    Health check endpoint for Docker and load balancers.
-    """
-    return {"status": "healthy", "service": "trade-finance-platform"}
 
-
-@asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Application lifespan handler for startup and shutdown events.
@@ -67,8 +59,8 @@ def create_app() -> FastAPI:
     Factory function to create and configure the FastAPI application.
     """
     app = FastAPI(
-        title=settings.PROJECT_NAME,
-        version=settings.VERSION,
+        title=settings.APP_NAME,
+        version=settings.APP_VERSION,
         description="""
         Enterprise-grade Trade Finance Platform for commercial banks.
         
@@ -96,7 +88,7 @@ def create_app() -> FastAPI:
     # Configure CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
+        allow_origins=settings.BACKEND_CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -170,7 +162,7 @@ def create_app() -> FastAPI:
     async def health_check():
         return {
             "status": "healthy",
-            "version": settings.VERSION,
+            "version": settings.APP_VERSION,
             "timestamp": time.time(),
         }
 

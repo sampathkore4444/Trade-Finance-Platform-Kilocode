@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://user:password@localhost:5432/trade_finance"
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/trade_finance"
     )
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10

@@ -184,8 +184,8 @@ class LetterOfCredit(Base):
     rejection_reason = Column(Text)
 
     # User tracking
-    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
-    assigned_to = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assigned_to = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     # Reference
     internal_reference = Column(String(50))

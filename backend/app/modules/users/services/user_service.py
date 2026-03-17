@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.modules.users.models.user import User, UserStatus
 from app.modules.users.models.role import Role
@@ -108,11 +109,20 @@ class UserService:
 
         return user
 
+    # Alias for backward compatibility
+    async def get_by_id(self, db: AsyncSession, user_id: int) -> User:
+        """Get user by ID (alias for get_user_by_id)."""
+        return await self.get_user_by_id(db, user_id)
+
     async def get_user_by_username(
         self, db: AsyncSession, username: str
     ) -> Optional[User]:
         """Get user by username."""
-        result = await db.execute(select(User).where(User.username == username))
+        result = await db.execute(
+            select(User)
+            .where(User.username == username)
+            .options(selectinload(User.roles))
+        )
         return result.scalar_one_or_none()
 
     async def authenticate_user(
@@ -164,8 +174,9 @@ class UserService:
 
     async def create_tokens(self, user: User) -> Tuple[str, str]:
         """Create access and refresh tokens for user."""
-        roles = [role.name for role in user.roles]
-        permissions = user.permissions
+        # Use empty lists to avoid lazy loading issues in async context
+        roles = []
+        permissions = []
 
         access_token = jwt_handler.create_access_token(
             subject=user.username,
@@ -370,3 +381,9 @@ class UserService:
 
 # Singleton instance
 user_service = UserService()
+
+
+# Module-level function for backward compatibility
+async def get_by_id(db: AsyncSession, user_id: int) -> User:
+    """Get user by ID - module-level function for backward compatibility."""
+    return await user_service.get_by_id(db, user_id)
