@@ -14,6 +14,9 @@ from app.modules.users.schemas.user import (
     RefreshTokenRequest,
     LogoutRequest,
     UserStatusEnum,
+    UserPasswordReset,
+    UserPasswordResetConfirm,
+    MFAVerifyRequest,
 )
 from app.modules.users.schemas.role import (
     RoleBase,
@@ -36,6 +39,9 @@ __all__ = [
     "RefreshTokenRequest",
     "LogoutRequest",
     "UserStatusEnum",
+    "UserPasswordReset",
+    "UserPasswordResetConfirm",
+    "MFAVerifyRequest",
     "RoleBase",
     "RoleCreate",
     "RoleUpdate",
