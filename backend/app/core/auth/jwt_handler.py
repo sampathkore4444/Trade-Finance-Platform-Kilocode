@@ -6,11 +6,17 @@ This module handles JWT token creation, validation, and refresh.
 
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.common.exceptions import TokenExpiredException, InvalidCredentialsException
+from app.database import get_db
+from app.modules.users.models import User
+from app.modules.users.services import user_service
 
 
 # Password hashing context
@@ -260,3 +266,81 @@ class JWTHandler:
 
 # Singleton instance
 jwt_handler = JWTHandler()
+
+# Security scheme
+security = HTTPBearer()
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Get the current authenticated user from JWT token.
+
+    Args:
+        credentials: HTTP Bearer token credentials
+        db: Database session
+
+    Returns:
+        Current user
+
+    Raises:
+        HTTPException: If token is invalid or user not found
+    """
+    token = credentials.credentials
+
+    try:
+        payload = jwt_handler.verify_access_token(token)
+        user_id: int = payload.get("user_id")
+
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+            )
+    except TokenExpiredException:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
+        )
+    except InvalidCredentialsException:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+    user = await user_service.get_by_id(db, user_id)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
+        )
+
+    return user
+
+
+async def get_current_active_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Get the current active user.
+
+    Args:
+        current_user: Current authenticated user
+
+    Returns:
+        Current active user
+
+    Raises:
+        HTTPException: If user is inactive
+    """
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
+        )
+    return current_user
