@@ -134,3 +134,23 @@ class LogoutRequest(BaseModel):
 
     refresh_token: Optional[str] = None
     all_sessions: bool = False
+
+
+class UserPasswordReset(BaseModel):
+    """User password reset request schema."""
+
+    email: EmailStr
+
+
+class UserPasswordResetConfirm(BaseModel):
+    """User password reset confirmation schema."""
+
+    token: str
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+
+class MFAVerifyRequest(BaseModel):
+    """MFA verification request schema."""
+
+    user_id: int
+    code: str = Field(..., min_length=6, max_length=6)
