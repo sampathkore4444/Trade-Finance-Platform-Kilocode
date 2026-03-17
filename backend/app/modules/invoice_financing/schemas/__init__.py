@@ -12,6 +12,9 @@ from app.modules.invoice_financing.schemas.invoice import (
     FinancingStatusEnum,
 )
 
+# Alias for backward compatibility
+InvoiceStatus = InvoiceStatusEnum
+
 __all__ = [
     "InvoiceFinancingBase",
     "InvoiceFinancingCreate",
@@ -20,4 +23,5 @@ __all__ = [
     "InvoiceFinancingListResponse",
     "InvoiceStatusEnum",
     "FinancingStatusEnum",
+    "InvoiceStatus",
 ]
