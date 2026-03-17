@@ -8,4 +8,16 @@ from app.modules.reports.schemas.report import (
     ReportTypeEnum,
 )
 
-__all__ = ["ReportBase", "ReportResponse", "ReportTypeEnum"]
+# Aliases for backward compatibility
+ReportGenerationRequest = ReportBase
+ReportStatus = ReportTypeEnum
+ReportType = ReportTypeEnum
+
+__all__ = [
+    "ReportBase",
+    "ReportResponse",
+    "ReportGenerationRequest",
+    "ReportTypeEnum",
+    "ReportStatus",
+    "ReportType",
+]
