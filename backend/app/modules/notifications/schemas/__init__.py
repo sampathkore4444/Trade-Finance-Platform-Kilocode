@@ -8,4 +8,18 @@ from app.modules.notifications.schemas.notification import (
     NotificationTypeEnum,
 )
 
-__all__ = ["NotificationBase", "NotificationResponse", "NotificationTypeEnum"]
+# Aliases for backward compatibility
+NotificationCreate = NotificationBase
+NotificationUpdate = NotificationBase
+NotificationStatus = NotificationTypeEnum
+NotificationType = NotificationTypeEnum
+
+__all__ = [
+    "NotificationBase",
+    "NotificationCreate",
+    "NotificationUpdate",
+    "NotificationResponse",
+    "NotificationTypeEnum",
+    "NotificationStatus",
+    "NotificationType",
+]
