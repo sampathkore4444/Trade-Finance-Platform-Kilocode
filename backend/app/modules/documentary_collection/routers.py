@@ -4,7 +4,7 @@ Handles HTTP endpoints for documentary collections
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -227,7 +227,7 @@ async def approve_collection(
 @router.post("/{collection_id}/reject", response_model=DocumentaryCollectionResponse)
 async def reject_collection(
     collection_id: int,
-    reason: str,
+    reason: str = Body(...),
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
 ):
@@ -294,7 +294,7 @@ async def complete_collection(
 @router.post("/{collection_id}/cancel", response_model=DocumentaryCollectionResponse)
 async def cancel_collection(
     collection_id: int,
-    reason: str,
+    reason: str = Body(...),
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
 ):
