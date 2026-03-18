@@ -22,6 +22,7 @@ import Reports from '@/pages/reports/Reports'
 import Settings from '@/pages/settings/Settings'
 import Users from '@/pages/admin/Users'
 import AIDocumentProcessor from '@/pages/ai/AIDocumentProcessor'
+import Documents from '@/pages/documents/Documents'
 import { Loader2 } from 'lucide-react'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -106,6 +107,11 @@ function App() {
         {/* Reports Routes */}
         <Route path="reports">
           <Route index element={<Reports />} />
+        </Route>
+        
+        {/* Documents Routes */}
+        <Route path="documents">
+          <Route index element={<Documents />} />
         </Route>
         
         {/* Settings Routes */}

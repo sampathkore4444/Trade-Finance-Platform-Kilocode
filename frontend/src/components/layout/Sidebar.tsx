@@ -12,6 +12,7 @@ import {
   Settings,
   Users,
   Brain,
+  Folder,
 } from 'lucide-react'
 
 const navigation = [
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Risk Management', href: '/risk', icon: AlertTriangle },
   { name: 'Compliance', href: '/compliance', icon: ClipboardCheck },
   { name: 'Reports', href: '/reports', icon: BarChart3 },
+  { name: 'Documents', href: '/documents', icon: Folder },
   { name: 'AI Document Processor', href: '/ai/document-processor', icon: Brain },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Users', href: '/admin/users', icon: Users },
