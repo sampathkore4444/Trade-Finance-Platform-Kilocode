@@ -48,4 +48,4 @@ numpy==1.26.3
 # Ollama - Local LLM
 # (Install separately: https://github.com/ollama/ollama)
 # Requires running ollama serve on localhost:11434
-requests==2.31.0
+requests==2.32.4
