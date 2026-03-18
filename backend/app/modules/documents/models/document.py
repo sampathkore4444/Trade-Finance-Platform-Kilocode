@@ -17,6 +17,12 @@ class DocumentType(str, enum.Enum):
     OTHER = "other"
 
 
+class DocumentStatus(str, enum.Enum):
+    PENDING = "pending"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+
+
 class Document(Base):
     __tablename__ = "documents"
 

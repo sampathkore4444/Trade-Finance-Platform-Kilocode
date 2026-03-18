@@ -20,15 +20,15 @@ from app.modules.documents.schemas import (
     DocumentType,
     DocumentStatus,
 )
-from app.modules.documents.services import document_service, DocumentService
+from app.modules.documents.services import DocumentService
 
 router = APIRouter(tags=["Documents"])
 security = HTTPBearer()
 
 
-def get_document_service():
+def get_document_service(db=Depends(get_db)):
     """Dependency to get document service"""
-    return document_service
+    return DocumentService(db)
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)
@@ -36,7 +36,7 @@ async def upload_document(
     file: UploadFile = File(...),
     document_type: Optional[DocumentType] = None,
     entity_type: Optional[str] = None,
-    entity_id: Optional[UUID] = None,
+    entity_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
 ):
@@ -48,7 +48,7 @@ async def upload_document(
         document_type=document_type,
         entity_type=entity_type,
         entity_id=entity_id,
-        user_id=current_user["user_id"],
+        user_id=current_user.id,
     )
     return document
 
@@ -59,7 +59,7 @@ async def list_documents(
     limit: int = Query(100, ge=1, le=1000),
     document_type: Optional[DocumentType] = None,
     entity_type: Optional[str] = None,
-    entity_id: Optional[UUID] = None,
+    entity_id: Optional[int] = None,
     status: Optional[DocumentStatus] = None,
     current_user: dict = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
@@ -139,7 +139,7 @@ async def update_document(
     document = await service.update_document(
         document_id=document_id,
         document_data=document_data,
-        user_id=current_user["user_id"],
+        user_id=current_user.id,
     )
     if not document:
         raise HTTPException(
@@ -160,7 +160,7 @@ async def delete_document(
     """
     success = await service.delete_document(
         document_id=document_id,
-        user_id=current_user["user_id"],
+        user_id=current_user.id,
     )
     if not success:
         raise HTTPException(
@@ -180,7 +180,7 @@ async def verify_document(
     """
     document = await service.verify_document(
         document_id=document_id,
-        user_id=current_user["user_id"],
+        user_id=current_user.id,
     )
     if not document:
         raise HTTPException(
@@ -203,7 +203,7 @@ async def reject_document(
     document = await service.reject_document(
         document_id=document_id,
         reason=reason,
-        user_id=current_user["user_id"],
+        user_id=current_user.id,
     )
     if not document:
         raise HTTPException(
@@ -216,7 +216,7 @@ async def reject_document(
 @router.get("/entity/{entity_type}/{entity_id}", response_model=List[DocumentResponse])
 async def get_documents_by_entity(
     entity_type: str,
-    entity_id: UUID,
+    entity_id: int,
     current_user: dict = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
 ):

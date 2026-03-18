@@ -16,9 +16,9 @@ class DocumentTypeEnum(str, Enum):
 
 
 class DocumentBase(BaseModel):
-    document_type: DocumentTypeEnum
-    entity_type: str
-    entity_id: int
+    document_type: Optional[DocumentTypeEnum] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[int] = None
     title: Optional[str] = None
     description: Optional[str] = None
 
@@ -26,10 +26,10 @@ class DocumentBase(BaseModel):
 class DocumentResponse(DocumentBase):
     id: int
     document_number: str
-    file_path: Optional[str]
-    file_name: Optional[str]
-    file_size: Optional[int]
-    mime_type: Optional[str]
-    uploaded_by: Optional[int]
+    file_path: Optional[str] = None
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
+    mime_type: Optional[str] = None
+    uploaded_by: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
