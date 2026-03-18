@@ -20,7 +20,7 @@ from app.modules.documents.schemas import (
     DocumentType,
     DocumentStatus,
 )
-from app.modules.documents.services import document_service
+from app.modules.documents.services import document_service, DocumentService
 
 router = APIRouter(tags=["Documents"])
 security = HTTPBearer()
