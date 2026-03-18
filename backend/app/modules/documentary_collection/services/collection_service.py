@@ -412,6 +412,24 @@ class DocumentaryCollectionService:
         )
         return list(result.scalars().all())
 
+    async def delete_collection(self, collection_id: int) -> bool:
+        """
+        Delete a documentary collection
+        """
+        result = await self.db.execute(
+            select(DocumentaryCollection).where(
+                DocumentaryCollection.id == collection_id
+            )
+        )
+        collection = result.scalar_one_or_none()
+
+        if not collection:
+            return False
+
+        await self.db.delete(collection)
+        await self.db.commit()
+        return True
+
 
 # Service instance factory
 collection_service = DocumentaryCollectionService

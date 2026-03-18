@@ -369,3 +369,20 @@ async def get_pending_collections(
         limit=limit,
     )
     return collections
+
+
+@router.delete("/{collection_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_collection(
+    collection_id: int,
+    current_user: dict = Depends(get_current_user),
+    service: DocumentaryCollectionService = Depends(get_collection_service),
+):
+    """
+    Delete a documentary collection
+    """
+    success = await service.delete_collection(collection_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Collection not found",
+        )

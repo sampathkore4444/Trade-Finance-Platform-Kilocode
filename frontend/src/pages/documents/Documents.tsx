@@ -93,6 +93,11 @@ export default function Documents() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterEntity, setFilterEntity] = useState('')
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteDocId, setDeleteDocId] = useState<number | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectDocId, setRejectDocId] = useState<number | null>(null)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadType, setUploadType] = useState('')
   const [uploadEntityType, setUploadEntityType] = useState('')
@@ -220,23 +225,37 @@ export default function Documents() {
   }
 
   const handleReject = async (docId: number) => {
-    const reason = prompt('Enter rejection reason:')
-    if (!reason) return
+    setRejectDocId(docId)
+    setShowRejectModal(true)
+  }
+
+  const confirmReject = async () => {
+    if (!rejectReason.trim() || !rejectDocId) return
     
     try {
-      await api.post(`/documents/${docId}/reject`, { reason })
+      await api.post(`/documents/${rejectDocId}/reject`, { reason: rejectReason })
       fetchDocuments()
+      setShowRejectModal(false)
+      setRejectReason('')
+      setRejectDocId(null)
     } catch (error) {
       console.error('Error rejecting document:', error)
     }
   }
 
   const handleDelete = async (docId: number) => {
-    if (!confirm('Are you sure you want to delete this document?')) return
+    setDeleteDocId(docId)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteDocId) return
     
     try {
-      await api.delete(`/documents/${docId}`)
+      await api.delete(`/documents/${deleteDocId}`)
       fetchDocuments()
+      setShowDeleteModal(false)
+      setDeleteDocId(null)
     } catch (error) {
       console.error('Error deleting document:', error)
     }
@@ -549,6 +568,137 @@ export default function Documents() {
                 ) : (
                   'Upload'
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-lg font-semibold text-red-600">Reject Document</h2>
+              <button
+                onClick={() => { setShowRejectModal(false); setRejectReason(''); setRejectDocId(null); }}
+                className="text-secondary-400 hover:text-secondary-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              <label className="block text-sm font-medium text-secondary-700 mb-1">
+                Rejection Reason
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                rows={4}
+                placeholder="Please provide a reason for rejection..."
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 p-4 border-t bg-secondary-50">
+              <button
+                onClick={() => { setShowRejectModal(false); setRejectReason(''); setRejectDocId(null); }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={!rejectReason.trim()}
+                className="btn-danger"
+              >
+                Reject Document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-lg font-semibold text-red-600">Reject Document</h2>
+              <button 
+                onClick={() => { setShowRejectModal(false); setRejectReason(''); setRejectDocId(null); }}
+                className="text-secondary-400 hover:text-secondary-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              <label className="block text-sm font-medium text-secondary-700 mb-1">
+                Rejection Reason
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                rows={4}
+                placeholder="Please provide a reason for rejection..."
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 p-4 border-t bg-secondary-50">
+              <button
+                onClick={() => { setShowRejectModal(false); setRejectReason(''); setRejectDocId(null); }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={!rejectReason.trim()}
+                className="btn-danger"
+              >
+                Reject Document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-lg font-semibold text-red-600">Delete Document</h2>
+              <button 
+                onClick={() => { setShowDeleteModal(false); setDeleteDocId(null); }}
+                className="text-secondary-400 hover:text-secondary-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              <p className="text-secondary-600">
+                Are you sure you want to delete this document? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3 p-4 border-t bg-secondary-50">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteDocId(null); }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="btn-danger"
+              >
+                Delete
               </button>
             </div>
           </div>
