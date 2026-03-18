@@ -10,6 +10,7 @@ from typing import Optional, List, Tuple
 from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 from app.modules.invoice_financing.models import (
     InvoiceFinancing,
     InvoiceStatus,
