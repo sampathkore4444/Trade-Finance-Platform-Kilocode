@@ -4,7 +4,6 @@ Handles HTTP endpoints for document management
 """
 
 from typing import List, Optional
-from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from fastapi.security import HTTPBearer
 from fastapi.responses import FileResponse
@@ -80,7 +79,7 @@ async def list_documents(
 
 @router.get("/{document_id}", response_model=DocumentResponse)
 async def get_document(
-    document_id: UUID,
+    document_id: int,
     current_user: dict = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
 ):
@@ -98,7 +97,7 @@ async def get_document(
 
 @router.get("/{document_id}/download")
 async def download_document(
-    document_id: UUID,
+    document_id: int,
     current_user: dict = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
 ):
@@ -121,14 +120,14 @@ async def download_document(
 
     return FileResponse(
         path=file_path,
-        filename=document.original_filename,
+        filename=document.file_name,
         media_type=document.mime_type,
     )
 
 
 @router.put("/{document_id}", response_model=DocumentResponse)
 async def update_document(
-    document_id: UUID,
+    document_id: int,
     document_data: DocumentUpdate,
     current_user: dict = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
@@ -151,7 +150,7 @@ async def update_document(
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
-    document_id: UUID,
+    document_id: int,
     current_user: dict = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
 ):
@@ -171,7 +170,7 @@ async def delete_document(
 
 @router.post("/{document_id}/verify", response_model=DocumentResponse)
 async def verify_document(
-    document_id: UUID,
+    document_id: int,
     current_user: dict = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
 ):
@@ -192,7 +191,7 @@ async def verify_document(
 
 @router.post("/{document_id}/reject", response_model=DocumentResponse)
 async def reject_document(
-    document_id: UUID,
+    document_id: int,
     reason: str,
     current_user: dict = Depends(get_current_user),
     service: DocumentService = Depends(get_document_service),
