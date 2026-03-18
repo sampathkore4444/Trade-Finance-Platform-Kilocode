@@ -20,15 +20,15 @@ from app.modules.documents.schemas import (
     DocumentType,
     DocumentStatus,
 )
-from app.modules.documents.services import DocumentService
+from app.modules.documents.services import document_service
 
-router = APIRouter(prefix="/documents", tags=["Documents"])
+router = APIRouter(tags=["Documents"])
 security = HTTPBearer()
 
 
-def get_document_service(db=Depends(get_db)):
+def get_document_service():
     """Dependency to get document service"""
-    return DocumentService(db)
+    return document_service
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)

@@ -112,18 +112,18 @@ export default function Documents() {
   const fetchEntities = async () => {
     try {
       const results = await Promise.allSettled([
-        api.get('/letter-of-credit/'),
-        api.get('/bank-guarantee/'),
-        api.get('/collections/'),
-        api.get('/loans/'),
-        api.get('/invoices/')
+        api.get('/lc/'),
+        api.get('/guarantee/'),
+        api.get('/collection/collections/'),
+        api.get('/loan/loans/'),
+        api.get('/invoice/invoices/')
       ])
       
-      if (results[0].status === 'fulfilled') setLcs(results[0].value.data.results || results[0].value.data || [])
-      if (results[1].status === 'fulfilled') setGuarantees(results[1].value.data.results || results[1].value.data || [])
-      if (results[2].status === 'fulfilled') setCollections(results[2].value.data.results || results[2].value.data || [])
-      if (results[3].status === 'fulfilled') setLoans(results[3].value.data.results || results[3].value.data || [])
-      if (results[4].status === 'fulfilled') setInvoices(results[4].value.data.results || results[4].value.data || [])
+      if (results[0].status === 'fulfilled') setLcs(results[0].value.data.items || [])
+      if (results[1].status === 'fulfilled') setGuarantees(results[1].value.data.items || [])
+      if (results[2].status === 'fulfilled') setCollections(results[2].value.data.items || [])
+      if (results[3].status === 'fulfilled') setLoans(results[3].value.data.items || [])
+      if (results[4].status === 'fulfilled') setInvoices(results[4].value.data.items || [])
     } catch (error) {
       console.error('Error fetching entities:', error)
     }
