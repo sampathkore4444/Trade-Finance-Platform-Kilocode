@@ -32,8 +32,8 @@ from app.modules.compliance.routers import router as compliance_router
 from app.modules.documents.routers import router as documents_router
 from app.modules.reports.routers import router as reports_router
 from app.modules.notifications.routers import router as notifications_router
+from app.modules.smart_engines.routers import router as smart_engines_router
 from app.core.security.audit_logger import AuditLogger
-
 
 
 async def lifespan(app: FastAPI):
@@ -188,6 +188,9 @@ def create_app() -> FastAPI:
     app.include_router(reports_router, prefix="/api/v1/reports", tags=["Reports"])
     app.include_router(
         notifications_router, prefix="/api/v1/notifications", tags=["Notifications"]
+    )
+    app.include_router(
+        smart_engines_router, prefix="/api/v1/smart-engines", tags=["Smart Engines"]
     )
 
     return app

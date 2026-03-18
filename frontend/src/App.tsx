@@ -21,6 +21,7 @@ import ComplianceDashboard from '@/pages/compliance/ComplianceDashboard'
 import Reports from '@/pages/reports/Reports'
 import Settings from '@/pages/settings/Settings'
 import Users from '@/pages/admin/Users'
+import AIDocumentProcessor from '@/pages/ai/AIDocumentProcessor'
 import { Loader2 } from 'lucide-react'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -115,6 +116,11 @@ function App() {
         {/* Admin Routes */}
         <Route path="admin">
           <Route path="users" element={<Users />} />
+        </Route>
+        
+        {/* AI Smart Engines */}
+        <Route path="ai">
+          <Route path="document-processor" element={<AIDocumentProcessor />} />
         </Route>
       </Route>
       

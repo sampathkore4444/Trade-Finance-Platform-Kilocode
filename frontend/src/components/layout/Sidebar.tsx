@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   Users,
+  Brain,
 } from 'lucide-react'
 
 const navigation = [
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'Risk Management', href: '/risk', icon: AlertTriangle },
   { name: 'Compliance', href: '/compliance', icon: ClipboardCheck },
   { name: 'Reports', href: '/reports', icon: BarChart3 },
+  { name: 'AI Document Processor', href: '/ai/document-processor', icon: Brain },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Users', href: '/admin/users', icon: Users },
 ]

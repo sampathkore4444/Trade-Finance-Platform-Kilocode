@@ -38,3 +38,14 @@ httpx==0.26.0
 
 # Logging
 loguru==0.7.2
+
+# Smart Engines - AI/ML
+# OCR - Best open-source library
+easyocr==1.7.0
+Pillow==10.2.0
+numpy==1.26.3
+
+# Ollama - Local LLM
+# (Install separately: https://github.com/ollama/ollama)
+# Requires running ollama serve on localhost:11434
+requests==2.31.0
