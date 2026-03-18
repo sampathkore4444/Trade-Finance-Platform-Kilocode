@@ -33,6 +33,8 @@ from app.modules.documents.routers import router as documents_router
 from app.modules.reports.routers import router as reports_router
 from app.modules.notifications.routers import router as notifications_router
 from app.modules.smart_engines.routers import router as smart_engines_router
+from app.modules.event_generator.routers import router as event_generator_router
+from app.modules.event_generator.models.event import Event, EventAccountingStatus, EventSubscription
 from app.core.security.audit_logger import AuditLogger
 
 
@@ -191,6 +193,9 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         smart_engines_router, prefix="/api/v1/smart-engines", tags=["Smart Engines"]
+    )
+    app.include_router(
+        event_generator_router, prefix="/api/v1/events", tags=["Events"]
     )
 
     return app
