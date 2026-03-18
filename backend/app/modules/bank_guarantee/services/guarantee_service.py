@@ -510,6 +510,52 @@ class GuaranteeService:
 
         return guarantee
 
+    async def cancel_guarantee(
+        self,
+        db: AsyncSession,
+        guarantee_id: int,
+        user_id: int,
+        reason: str,
+    ) -> BankGuarantee:
+        """
+        Cancel guarantee.
+
+        Args:
+            db: Database session
+            guarantee_id: Guarantee ID
+            user_id: User ID cancelling
+            reason: Cancellation reason
+
+        Returns:
+            Updated guarantee
+        """
+        guarantee = await self.get_guarantee_by_id(db, guarantee_id)
+
+        if guarantee.status not in [
+            GuaranteeStatus.DRAFT,
+            GuaranteeStatus.SUBMITTED,
+        ]:
+            raise BusinessRuleViolationException(
+                message="Cannot cancel guarantee in current state"
+            )
+
+        guarantee.cancelled_by = user_id
+        guarantee.cancelled_at = datetime.utcnow()
+        guarantee.cancellation_reason = reason
+        guarantee.status = GuaranteeStatus.CANCELLED
+
+        await db.flush()
+
+        audit_logger.log(
+            action=AuditAction.GUARANTEE_CANCELLED,
+            user_id=user_id,
+            resource_type="GUARANTEE",
+            resource_id=str(guarantee_id),
+            details={"guarantee_number": guarantee.guarantee_number, "reason": reason},
+        )
+
+        return guarantee
+
 
 # Singleton instance
 guarantee_service = GuaranteeService()

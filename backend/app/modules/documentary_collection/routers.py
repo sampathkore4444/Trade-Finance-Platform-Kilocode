@@ -4,24 +4,42 @@ Handles HTTP endpoints for documentary collections
 """
 
 from typing import List, Optional
-from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.security import HTTPBearer
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.core.auth.jwt_handler import get_current_user
+from app.core.auth.jwt_handler import jwt_handler
 from app.modules.documentary_collection.schemas import (
     DocumentaryCollectionCreate,
     DocumentaryCollectionUpdate,
     DocumentaryCollectionResponse,
 )
 from app.modules.documentary_collection.models import CollectionStatus
-from app.modules.documentary_collection.services import DocumentaryCollectionService
+from app.modules.documentary_collection.services import (
+    collection_service,
+    DocumentaryCollectionService,
+)
 
 router = APIRouter(prefix="/collections", tags=["Documentary Collection"])
 security = HTTPBearer()
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    """
+    Get current authenticated user from JWT token.
+    """
+    token = credentials.credentials
+    payload = jwt_handler.decode_token(token)
+    return {
+        "user_id": payload.get("user_id"),
+        "username": payload.get("sub"),
+        "roles": payload.get("roles", []),
+        "permissions": payload.get("permissions", []),
+    }
 
 
 class PaginatedCollectionResponse(BaseModel):
@@ -32,8 +50,8 @@ class PaginatedCollectionResponse(BaseModel):
     total_pages: int
 
 
-async def get_collection_service(db=Depends(get_db)):
-    """Dependency to get collection service"""
+async def get_collection_service(db: AsyncSession = Depends(get_db)):
+    """Dependency to get collection service with database session"""
     return DocumentaryCollectionService(db)
 
 
@@ -72,14 +90,14 @@ async def list_collections(
     """
     # Calculate skip value from page
     skip = (page - 1) * page_size
-    
+
     # Get total count
     total = await service.count_collections(
         status=status,
         search=search,
         collection_type=collection_type,
     )
-    
+
     collections = await service.list_collections(
         skip=skip,
         limit=page_size,
@@ -87,9 +105,9 @@ async def list_collections(
         search=search,
         collection_type=collection_type,
     )
-    
+
     total_pages = (total + page_size - 1) // page_size if total > 0 else 1
-    
+
     return {
         "items": collections,
         "total": total,
@@ -101,14 +119,16 @@ async def list_collections(
 
 @router.get("/{collection_id}", response_model=DocumentaryCollectionResponse)
 async def get_collection(
-    collection_id: UUID,
+    collection_id: int,
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
 ):
     """
     Get a documentary collection by ID
     """
-    collection = await service.get_collection_by_id(collection_id)
+    collection = await service.get_collection_by_id(
+        collection_id=collection_id,
+    )
     if not collection:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -126,7 +146,9 @@ async def get_collection_by_number(
     """
     Get a documentary collection by collection number
     """
-    collection = await service.get_collection_by_number(collection_number)
+    collection = await service.get_collection_by_number(
+        collection_number=collection_number,
+    )
     if not collection:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -137,7 +159,7 @@ async def get_collection_by_number(
 
 @router.put("/{collection_id}", response_model=DocumentaryCollectionResponse)
 async def update_collection(
-    collection_id: UUID,
+    collection_id: int,
     collection_data: DocumentaryCollectionUpdate,
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
@@ -160,7 +182,7 @@ async def update_collection(
 
 @router.post("/{collection_id}/submit", response_model=DocumentaryCollectionResponse)
 async def submit_collection(
-    collection_id: UUID,
+    collection_id: int,
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
 ):
@@ -181,7 +203,7 @@ async def submit_collection(
 
 @router.post("/{collection_id}/approve", response_model=DocumentaryCollectionResponse)
 async def approve_collection(
-    collection_id: UUID,
+    collection_id: int,
     remarks: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
@@ -204,7 +226,7 @@ async def approve_collection(
 
 @router.post("/{collection_id}/reject", response_model=DocumentaryCollectionResponse)
 async def reject_collection(
-    collection_id: UUID,
+    collection_id: int,
     reason: str,
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
@@ -227,7 +249,7 @@ async def reject_collection(
 
 @router.post("/{collection_id}/process", response_model=DocumentaryCollectionResponse)
 async def process_collection(
-    collection_id: UUID,
+    collection_id: int,
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
 ):
@@ -248,7 +270,7 @@ async def process_collection(
 
 @router.post("/{collection_id}/complete", response_model=DocumentaryCollectionResponse)
 async def complete_collection(
-    collection_id: UUID,
+    collection_id: int,
     final_amount: Optional[float] = None,
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),
@@ -271,7 +293,7 @@ async def complete_collection(
 
 @router.post("/{collection_id}/cancel", response_model=DocumentaryCollectionResponse)
 async def cancel_collection(
-    collection_id: UUID,
+    collection_id: int,
     reason: str,
     current_user: dict = Depends(get_current_user),
     service: DocumentaryCollectionService = Depends(get_collection_service),

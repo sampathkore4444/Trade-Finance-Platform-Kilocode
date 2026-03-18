@@ -1,21 +1,71 @@
-import { useState } from 'react'
-import { Plus, Search, Filter, MoreVertical, Edit, Trash2, User, Mail, Building2, Shield, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Search, Filter, MoreVertical, Edit, Trash2, User, Mail, Building2, Shield, RefreshCw, Loader2 } from 'lucide-react'
+import api from '@/api/axios'
 
-const users = [
-  { id: 1, name: 'John Smith', email: 'john.smith@bank.com', role: 'Administrator', department: 'Operations', status: 'active', lastLogin: '2024-01-15 09:30' },
-  { id: 2, name: 'Jane Doe', email: 'jane.doe@bank.com', role: 'Credit Officer', department: 'Credit', status: 'active', lastLogin: '2024-01-15 08:45' },
-  { id: 3, name: 'Mike Johnson', email: 'mike.j@bank.com', role: 'Relationship Manager', department: 'Corporate Banking', status: 'active', lastLogin: '2024-01-14 16:20' },
-  { id: 4, name: 'Sarah Wilson', email: 'sarah.w@bank.com', role: 'Compliance Officer', department: 'Compliance', status: 'active', lastLogin: '2024-01-15 10:00' },
-  { id: 5, name: 'Tom Brown', email: 'tom.brown@bank.com', role: 'Operations', department: 'Operations', status: 'inactive', lastLogin: '2024-01-10 14:30' },
-]
+interface UserData {
+  id: number
+  name: string
+  email: string
+  role: string
+  department: string
+  status: string
+  lastLogin: string
+}
 
 const roles = ['Administrator', 'Credit Officer', 'Relationship Manager', 'Compliance Officer', 'Operations', 'Viewer']
 const departments = ['Operations', 'Credit', 'Corporate Banking', 'Compliance', 'Risk', 'IT']
 
 export default function Users() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [users, setUsers] = useState<UserData[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+
+  useEffect(() => {
+    fetchUsers()
+  }, [searchTerm, roleFilter])
+
+  const fetchUsers = async () => {
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (searchTerm) params.append('search', searchTerm)
+      // Note: Role filtering would need backend support
+      
+      const response = await api.get(`/users/?${params.toString()}`)
+      
+      if (response.data && response.data.items) {
+        const userList = response.data.items.map((user: any) => ({
+          id: user.id,
+          name: user.full_name || user.email?.split('@')[0] || 'Unknown',
+          email: user.email || '',
+          role: user.role || 'Viewer',
+          department: user.department || 'Operations',
+          status: user.is_active ? 'active' : 'inactive',
+          lastLogin: user.last_login ? new Date(user.last_login).toLocaleString() : 'Never',
+        }))
+        setUsers(userList)
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Stats
+  const totalUsers = users.length
+  const activeUsers = users.filter(u => u.status === 'active').length
+  const adminUsers = users.filter(u => u.role === 'Administrator').length
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -38,7 +88,7 @@ export default function Users() {
             </div>
             <div>
               <p className="text-sm text-secondary-500">Total Users</p>
-              <p className="text-xl font-semibold text-secondary-900">{users.length}</p>
+              <p className="text-xl font-semibold text-secondary-900">{totalUsers}</p>
             </div>
           </div>
         </div>
@@ -48,8 +98,8 @@ export default function Users() {
               <Shield className="h-6 w-6 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-secondary-500">Active</p>
-              <p className="text-xl font-semibold text-secondary-900">{users.filter(u => u.status === 'active').length}</p>
+              <p className="text-sm text-secondary-500">Active Users</p>
+              <p className="text-xl font-semibold text-secondary-900">{activeUsers}</p>
             </div>
           </div>
         </div>
@@ -70,113 +120,117 @@ export default function Users() {
               <Shield className="h-6 w-6 text-yellow-600" />
             </div>
             <div>
-              <p className="text-sm text-secondary-500">Roles</p>
-              <p className="text-xl font-semibold text-secondary-900">{roles.length}</p>
+              <p className="text-sm text-secondary-500">Administrators</p>
+              <p className="text-xl font-semibold text-secondary-900">{adminUsers}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Search and Filters */}
+      {/* Filters */}
       <div className="card">
         <div className="card-body">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search users..."
-                className="input pl-10"
-              />
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-secondary-400" />
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  className="input pl-10 w-full md:w-64"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`btn ${showFilters ? 'btn-primary' : 'btn-secondary'}`}
-            >
-              <Filter className="w-4 h-4 mr-2" /> Filters
-            </button>
-            <button className="btn-outline">
-              <RefreshCw className="w-4 h-4" />
-            </button>
+            <div className="flex items-center space-x-2">
+              <select
+                className="input w-40"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+              >
+                <option value="">All Roles</option>
+                {roles.map((role) => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
+              <button
+                className="btn-outline"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" /> More Filters
+              </button>
+              <button
+                className="btn-outline"
+                onClick={fetchUsers}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+              </button>
+            </div>
           </div>
-          {showFilters && (
-            <div className="mt-4 pt-4 border-t border-secondary-200 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="label">Role</label>
-                <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input">
-                  <option value="">All Roles</option>
-                  {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div className="flex items-end">
-                <button onClick={() => { setSearchTerm(''); setRoleFilter('') }} className="btn-outline w-full">Clear</button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Users Table */}
-      <div className="card overflow-hidden">
+      <div className="card">
         <div className="overflow-x-auto">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Department</th>
-                <th>Status</th>
-                <th>Last Login</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users
-                .filter(u => searchTerm === '' || u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()))
-                .filter(u => roleFilter === '' || u.role === roleFilter)
-                .map((user) => (
-                <tr key={user.id} className="hover:bg-secondary-50">
-                  <td>
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center mr-3">
-                        <span className="text-sm font-medium text-primary-600">{user.name.charAt(0)}</span>
-                      </div>
-                      <span className="font-medium">{user.name}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex items-center">
-                      <Mail className="w-4 h-4 text-secondary-400 mr-2" />
-                      {user.email}
-                    </div>
-                  </td>
-                  <td>
-                    <span className="badge badge-secondary">{user.role}</span>
-                  </td>
-                  <td>{user.department}</td>
-                  <td>
-                    <span className={`badge ${user.status === 'active' ? 'badge-success' : 'badge-secondary'}`}>
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="text-secondary-500">{user.lastLogin}</td>
-                  <td>
-                    <div className="flex items-center space-x-2">
-                      <button className="p-1 text-secondary-400 hover:text-primary-600">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="p-1 text-secondary-400 hover:text-red-600">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+          {users.length > 0 ? (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>Status</th>
+                  <th>Last Login</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id}>
+                    <td>
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center mr-3">
+                          <span className="text-primary-600 font-medium">
+                            {user.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-secondary-900">{user.name}</p>
+                          <p className="text-sm text-secondary-500">{user.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge badge-info">{user.role}</span>
+                    </td>
+                    <td>{user.department}</td>
+                    <td>
+                      <span className={`badge ${user.status === 'active' ? 'badge-success' : 'badge-secondary'}`}>
+                        {user.status}
+                      </span>
+                    </td>
+                    <td className="text-secondary-500">{user.lastLogin}</td>
+                    <td>
+                      <div className="flex items-center space-x-2">
+                        <button className="text-secondary-400 hover:text-primary-600">
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button className="text-secondary-400 hover:text-red-600">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-center py-8 text-secondary-500">
+              No users found
+            </div>
+          )}
         </div>
       </div>
     </div>

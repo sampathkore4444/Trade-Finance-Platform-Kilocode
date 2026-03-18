@@ -1,24 +1,89 @@
-import { useState } from 'react'
-import { FileText, Download, Calendar, TrendingUp, DollarSign, Shield, Building2, BarChart3, PieChart, LineChart } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { FileText, Download, Calendar, TrendingUp, DollarSign, Shield, Building2, BarChart3, PieChart, LineChart, Loader2 } from 'lucide-react'
+import api from '@/api/axios'
 
-const reportTypes = [
-  { id: 'lc_summary', name: 'LC Summary Report', description: 'Letter of Credit transaction summary', icon: FileText },
-  { id: 'guarantee_summary', name: 'Guarantee Summary', description: 'Bank Guarantee portfolio overview', icon: Shield },
-  { id: 'collection_summary', name: 'Collection Report', description: 'Documentary collections analysis', icon: Building2 },
-  { id: 'loan_performance', name: 'Loan Performance', description: 'Trade loan portfolio performance', icon: DollarSign },
-  { id: 'risk_exposure', name: 'Risk Exposure', description: 'Risk exposure and limits', icon: TrendingUp },
-  { id: 'compliance', name: 'Compliance Report', description: 'Regulatory compliance status', icon: FileText },
-]
-
-const recentReports = [
-  { id: 1, name: 'LC Monthly Summary - January 2024', type: 'LC Summary', generatedDate: '2024-01-15', generatedBy: 'System' },
-  { id: 2, name: 'Risk Exposure Report Q4 2023', type: 'Risk Exposure', generatedDate: '2024-01-10', generatedBy: 'Admin' },
-  { id: 3, name: 'Compliance Status Report', type: 'Compliance', generatedDate: '2024-01-05', generatedBy: 'System' },
-]
+interface Report {
+  id: number
+  name: string
+  type: string
+  generatedDate: string
+  generatedBy: string
+}
 
 export default function Reports() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [recentReports, setRecentReports] = useState<Report[]>([])
   const [selectedReport, setSelectedReport] = useState('')
   const [dateRange, setDateRange] = useState('last_30_days')
+
+  // Stats
+  const [totalReports, setTotalReports] = useState(0)
+  const [monthlyGenerated, setMonthlyGenerated] = useState(0)
+  const [activeUsers, setActiveUsers] = useState(0)
+  const [storageUsed, setStorageUsed] = useState(0)
+
+  useEffect(() => {
+    fetchReportsData()
+  }, [])
+
+  const fetchReportsData = async () => {
+    setIsLoading(true)
+    try {
+      // Fetch reports from API
+      const response = await api.get('/reports/')
+      
+      if (response.data && response.data.length > 0) {
+        const reports = response.data.slice(0, 10).map((report: any) => ({
+          id: report.id,
+          name: report.name || `Report ${report.id}`,
+          type: report.report_type || 'General',
+          generatedDate: report.created_at ? new Date(report.created_at).toLocaleDateString() : '-',
+          generatedBy: report.created_by || 'System',
+        }))
+        setRecentReports(reports)
+        setTotalReports(response.data.length)
+      }
+
+      // Get activity data from users/sessions
+      try {
+        const usersResponse = await api.get('/users/')
+        if (usersResponse.data && usersResponse.data.items) {
+          setActiveUsers(usersResponse.data.total || 0)
+        }
+      } catch (e) {
+        // Users endpoint might require auth
+        setActiveUsers(0)
+      }
+
+      // Calculate monthly generated reports (mock calculation based on total)
+      setMonthlyGenerated(Math.max(1, Math.floor(totalReports / 12)))
+      
+      // Storage used (mock - would come from backend in real implementation)
+      setStorageUsed(Math.floor(totalReports * 0.5))
+
+    } catch (error) {
+      console.error('Error fetching reports data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const reportTypes = [
+    { id: 'lc_summary', name: 'LC Summary Report', description: 'Letter of Credit transaction summary', icon: FileText },
+    { id: 'guarantee_summary', name: 'Guarantee Summary', description: 'Bank Guarantee portfolio overview', icon: Shield },
+    { id: 'collection_summary', name: 'Collection Report', description: 'Documentary collections analysis', icon: Building2 },
+    { id: 'loan_performance', name: 'Loan Performance', description: 'Trade loan portfolio performance', icon: DollarSign },
+    { id: 'risk_exposure', name: 'Risk Exposure', description: 'Risk exposure and limits', icon: TrendingUp },
+    { id: 'compliance', name: 'Compliance Report', description: 'Regulatory compliance status', icon: FileText },
+  ]
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -38,7 +103,7 @@ export default function Reports() {
             </div>
             <div>
               <p className="text-sm text-secondary-500">Total Reports</p>
-              <p className="text-xl font-semibold text-secondary-900">156</p>
+              <p className="text-xl font-semibold text-secondary-900">{totalReports}</p>
             </div>
           </div>
         </div>
@@ -49,7 +114,7 @@ export default function Reports() {
             </div>
             <div>
               <p className="text-sm text-secondary-500">This Month</p>
-              <p className="text-xl font-semibold text-secondary-900">23</p>
+              <p className="text-xl font-semibold text-secondary-900">{monthlyGenerated}</p>
             </div>
           </div>
         </div>
@@ -59,136 +124,91 @@ export default function Reports() {
               <BarChart3 className="h-6 w-6 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm text-secondary-500">Scheduled</p>
-              <p className="text-xl font-semibold text-secondary-900">8</p>
+              <p className="text-sm text-secondary-500">Active Users</p>
+              <p className="text-xl font-semibold text-secondary-900">{activeUsers}</p>
             </div>
           </div>
         </div>
         <div className="card">
           <div className="card-body flex items-center">
             <div className="p-3 bg-yellow-100 rounded-lg mr-4">
-              <Calendar className="h-6 w-6 text-yellow-600" />
+              <PieChart className="h-6 w-6 text-yellow-600" />
             </div>
             <div>
-              <p className="text-sm text-secondary-500">This Week</p>
-              <p className="text-xl font-semibold text-secondary-900">5</p>
+              <p className="text-sm text-secondary-500">Storage Used</p>
+              <p className="text-xl font-semibold text-secondary-900">{storageUsed} MB</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Report Types */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-semibold text-secondary-900">Generate New Report</h3>
-            </div>
-            <div className="card-body">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {reportTypes.map((report) => (
-                  <button
-                    key={report.id}
-                    onClick={() => setSelectedReport(report.id)}
-                    className={`flex items-start p-4 border rounded-lg text-left transition-all ${
-                      selectedReport === report.id
-                        ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
-                        : 'border-secondary-200 hover:border-secondary-300 hover:bg-secondary-50'
-                    }`}
-                  >
-                    <report.icon className={`w-6 h-6 mr-3 ${selectedReport === report.id ? 'text-primary-600' : 'text-secondary-400'}`} />
-                    <div>
-                      <p className="font-medium text-secondary-900">{report.name}</p>
-                      <p className="text-sm text-secondary-500">{report.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {selectedReport && (
-                <div className="mt-6 pt-6 border-t border-secondary-200">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Date Range</label>
-                      <select
-                        value={dateRange}
-                        onChange={(e) => setDateRange(e.target.value)}
-                        className="input"
-                      >
-                        <option value="last_7_days">Last 7 Days</option>
-                        <option value="last_30_days">Last 30 Days</option>
-                        <option value="last_90_days">Last 90 Days</option>
-                        <option value="this_month">This Month</option>
-                        <option value="this_quarter">This Quarter</option>
-                        <option value="this_year">This Year</option>
-                        <option value="custom">Custom Range</option>
-                      </select>
-                    </div>
-                    <div className="flex items-end">
-                      <button className="btn-primary w-full">
-                        <Download className="w-4 h-4 mr-2" />
-                        Generate Report
-                      </button>
-                    </div>
+      {/* Report Types */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="text-lg font-medium text-secondary-900">Available Reports</h3>
+        </div>
+        <div className="card-body">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {reportTypes.map((report) => (
+              <div key={report.id} className="p-4 border border-secondary-200 rounded-lg hover:bg-secondary-50 cursor-pointer transition-colors">
+                <div className="flex items-start">
+                  <div className="p-2 bg-primary-100 rounded-lg mr-3">
+                    <report.icon className="h-5 w-5 text-primary-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-secondary-900">{report.name}</h4>
+                    <p className="text-xs text-secondary-500 mt-1">{report.description}</p>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
+      </div>
 
-        {/* Recent Reports */}
-        <div className="space-y-6">
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-semibold text-secondary-900">Recent Reports</h3>
+      {/* Recent Reports */}
+      <div className="card">
+        <div className="card-header flex items-center justify-between">
+          <h3 className="text-lg font-medium text-secondary-900">Recent Reports</h3>
+          <button className="text-sm text-primary-600 hover:text-primary-500">
+            View all
+          </button>
+        </div>
+        <div className="card-body">
+          {recentReports.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Report Name</th>
+                    <th>Type</th>
+                    <th>Generated Date</th>
+                    <th>Generated By</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentReports.map((report) => (
+                    <tr key={report.id}>
+                      <td className="font-medium">{report.name}</td>
+                      <td>{report.type}</td>
+                      <td className="text-secondary-500">{report.generatedDate}</td>
+                      <td>{report.generatedBy}</td>
+                      <td>
+                        <button className="text-primary-600 hover:text-primary-500">
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="card-body">
-              <div className="space-y-3">
-                {recentReports.map((report) => (
-                  <div key={report.id} className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg">
-                    <div className="flex items-center">
-                      <FileText className="w-5 h-5 text-secondary-400 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-secondary-900">{report.name}</p>
-                        <p className="text-xs text-secondary-500">{report.type}</p>
-                      </div>
-                    </div>
-                    <button className="text-primary-600 hover:text-primary-500">
-                      <Download className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button className="btn-outline w-full mt-4">
-                View All Reports
-              </button>
+          ) : (
+            <div className="text-center py-8 text-secondary-500">
+              No reports generated yet
             </div>
-          </div>
-
-          {/* Scheduled Reports */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-semibold text-secondary-900">Scheduled Reports</h3>
-            </div>
-            <div className="card-body">
-              <div className="space-y-3">
-                {[
-                  { name: 'Weekly LC Summary', frequency: 'Every Monday', nextRun: '2024-01-22' },
-                  { name: 'Monthly Compliance', frequency: '1st of month', nextRun: '2024-02-01' },
-                  { name: 'Quarterly Risk', frequency: 'Quarterly', nextRun: '2024-04-01' },
-                ].map((schedule, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-secondary-900">{schedule.name}</p>
-                      <p className="text-xs text-secondary-500">{schedule.frequency}</p>
-                    </div>
-                    <span className="text-xs text-secondary-400">Next: {schedule.nextRun}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

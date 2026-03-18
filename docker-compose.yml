@@ -32,7 +32,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql+asyncpg://tradefinance:tradefinance123@db:5432/tradefinance
+      - DATABASE_URL=postgresql+asyncpg://tradefinance:tradefinance123@db:5432/tradefinanceu5
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
       - ALGORITHM=HS256

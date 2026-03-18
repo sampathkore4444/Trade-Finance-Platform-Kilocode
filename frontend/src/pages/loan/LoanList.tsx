@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  Plus, Search, Filter, Download, RefreshCw, ChevronLeft, ChevronRight, Eye, Edit, DollarSign,
-  Calendar, AlertCircle, Banknote, Building2
+  Plus, Search, Download, RefreshCw, ChevronLeft, ChevronRight, Eye, Edit, DollarSign,
+  AlertCircle, Banknote, Building2, Trash2, Check, X, Loader2, Send
 } from 'lucide-react'
 import api from '@/api/axios'
 
@@ -31,6 +32,7 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
 }
 
 export default function LoanList() {
+  const navigate = useNavigate()
   const [loans, setLoans] = useState<LoanItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -39,6 +41,14 @@ export default function LoanList() {
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+
+  // Action states
+  const [actionLoading, setActionLoading] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [selectedLoan, setSelectedLoan] = useState<LoanItem | null>(null)
+  const [showActionModal, setShowActionModal] = useState(false)
+  const [actionType, setActionType] = useState<string>('')
+  const [actionReason, setActionReason] = useState('')
 
   useEffect(() => { fetchLoans() }, [page, status])
 
@@ -67,6 +77,82 @@ export default function LoanList() {
   const formatAmount = (a: number, c: string) => new Intl.NumberFormat('en-US', { style: 'currency', currency: c, minimumFractionDigits: 0 }).format(a)
   const getStatusConfig = (s: string) => STATUS_CONFIG[s] || { color: 'text-secondary-600', bg: 'bg-secondary-100', label: s }
 
+  // Action handlers
+  const handleDelete = async () => {
+    if (!selectedLoan) return
+    setActionLoading(true)
+    try {
+      await api.delete(`/loan/loans/${selectedLoan.id}`)
+      setShowDeleteConfirm(false)
+      setSelectedLoan(null)
+      fetchLoans()
+    } catch (err: any) {
+      console.error('Error deleting Loan:', err)
+      alert(err.response?.data?.detail || 'Failed to delete Trade Loan')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleAction = async () => {
+    if (!selectedLoan || !actionType) return
+    setActionLoading(true)
+    try {
+      const endpoint = `/loan/loans/${selectedLoan.id}/${actionType}`
+      if (actionType === 'reject') {
+        await api.post(endpoint, { reason: actionReason })
+      } else {
+        await api.post(endpoint)
+      }
+      setShowActionModal(false)
+      setSelectedLoan(null)
+      setActionType('')
+      setActionReason('')
+      fetchLoans()
+    } catch (err: any) {
+      console.error('Error performing action:', err)
+      alert(err.response?.data?.detail || `Failed to ${actionType}`)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const openActionModal = (loan: LoanItem, action: string) => {
+    setSelectedLoan(loan)
+    setActionType(action)
+    setShowActionModal(true)
+  }
+
+  const getAvailableActions = (loan: LoanItem) => {
+    const actions = []
+    const currentStatus = loan.status
+
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'edit', label: 'Edit', icon: Edit, handler: () => navigate(`/loan/${loan.id}`) })
+    }
+
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'submit', label: 'Submit', icon: Send, handler: () => openActionModal(loan, 'submit') })
+    }
+
+    // View - available for all
+    actions.push({ key: 'view', label: 'View Details', icon: Eye, handler: () => navigate(`/loan/${loan.id}`) })
+
+    if (currentStatus === 'submitted') {
+      actions.push({ key: 'approve', label: 'Approve', icon: Check, handler: () => openActionModal(loan, 'approve') })
+    }
+
+    if (currentStatus === 'submitted') {
+      actions.push({ key: 'reject', label: 'Reject', icon: X, handler: () => openActionModal(loan, 'reject') })
+    }
+
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'delete', label: 'Delete', icon: Trash2, handler: () => { setSelectedLoan(loan); setShowDeleteConfirm(true) } })
+    }
+
+    return actions
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -74,7 +160,7 @@ export default function LoanList() {
           <h1 className="text-2xl font-bold text-secondary-900">Trade Loans</h1>
           <p className="text-sm text-secondary-500 mt-1">Manage Trade Finance Loans</p>
         </div>
-        <button className="btn-primary"><Plus className="h-5 w-5 mr-2" />Create Loan</button>
+        <button className="btn-primary" onClick={() => navigate('/loan/new')}><Plus className="h-5 w-5 mr-2" />Create Loan</button>
       </div>
 
       <div className="card">
@@ -118,7 +204,20 @@ export default function LoanList() {
                   <td>{formatDate(loan.disbursement_date)}</td>
                   <td>{formatDate(loan.maturity_date)}</td>
                   <td><span className={`badge ${getStatusConfig(loan.status).bg} ${getStatusConfig(loan.status).color}`}>{getStatusConfig(loan.status).label}</span></td>
-                  <td><div className="flex space-x-2"><button className="p-1 text-secondary-400 hover:text-primary-600"><Eye className="w-4 h-4" /></button><button className="p-1 text-secondary-400 hover:text-primary-600"><Edit className="w-4 h-4" /></button></div></td>
+                  <td>
+                    <div className="flex items-center space-x-1">
+                      {getAvailableActions(loan).slice(0, 6).map((action) => (
+                        <button
+                          key={action.key}
+                          onClick={action.handler}
+                          className="p-1 text-secondary-400 hover:text-primary-600"
+                          title={action.label}
+                        >
+                          <action.icon className="w-4 h-4" />
+                        </button>
+                      ))}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -132,6 +231,79 @@ export default function LoanList() {
           <div className="flex space-x-2">
             <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="btn-outline btn-sm disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
             <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="btn-outline btn-sm disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <div className="flex items-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mr-4">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-secondary-900">Confirm Delete</h3>
+                <p className="text-secondary-500 text-sm">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-secondary-600 mb-6">Are you sure you want to delete this Trade Loan? This will permanently remove the record from the system.</p>
+            <div className="flex justify-end space-x-3">
+              <button onClick={() => { setShowDeleteConfirm(false); setSelectedLoan(null) }} className="btn-outline" disabled={actionLoading}>Cancel</button>
+              <button onClick={handleDelete} className="btn-danger" disabled={actionLoading}>
+                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Modal */}
+      {showActionModal && selectedLoan && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              {actionType === 'submit' && 'Submit Loan for Approval'}
+              {actionType === 'approve' && 'Approve Loan'}
+              {actionType === 'reject' && 'Reject Loan'}
+            </h3>
+            
+            {actionType === 'reject' && (
+              <div className="mb-4">
+                <label className="label">Reason</label>
+                <textarea
+                  value={actionReason}
+                  onChange={(e) => setActionReason(e.target.value)}
+                  className="input"
+                  rows={3}
+                  placeholder="Enter reason for rejection..."
+                  required
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setShowActionModal(false); setSelectedLoan(null); setActionType(''); setActionReason('') }}
+                className="btn-secondary"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAction}
+                className={`btn ${actionType === 'reject' ? 'btn-danger' : 'btn-primary'}`}
+                disabled={actionLoading || (actionType === 'reject' && !actionReason)}
+              >
+                {actionLoading ? 'Processing...' : 
+                  actionType === 'submit' ? 'Submit' :
+                  actionType === 'approve' ? 'Approve' :
+                  actionType === 'reject' ? 'Reject' : 'Confirm'
+                }
+              </button>
+            </div>
           </div>
         </div>
       )}

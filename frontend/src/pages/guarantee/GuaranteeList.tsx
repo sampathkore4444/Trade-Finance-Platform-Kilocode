@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus,
   Search,
@@ -21,6 +21,11 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Trash2,
+  Check,
+  X,
+  Loader2,
+  Send,
 } from 'lucide-react'
 import api from '@/api/axios'
 
@@ -88,6 +93,7 @@ const STATUS_OPTIONS = [
 ]
 
 export default function GuaranteeList() {
+  const navigate = useNavigate()
   const [guarantees, setGuarantees] = useState<GuaranteeItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -102,6 +108,11 @@ export default function GuaranteeList() {
   const [guaranteeType, setGuaranteeType] = useState('')
   const [status, setStatus] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+
+  // Action states
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
+  const [showActionsMenu, setShowActionsMenu] = useState<number | null>(null)
 
   useEffect(() => {
     fetchGuarantees()
@@ -164,6 +175,91 @@ export default function GuaranteeList() {
     return GUARANTEE_TYPES.find(t => t.value === type)?.label || type
   }
 
+  // Action handlers
+  const handleEdit = (guaranteeId: number) => {
+    navigate(`/guarantee/${guaranteeId}/edit`)
+  }
+
+  const handleDelete = async (guaranteeId: number) => {
+    setActionLoading(guaranteeId)
+    try {
+      await api.delete(`/guarantee/${guaranteeId}`)
+      setShowDeleteConfirm(null)
+      fetchGuarantees()
+    } catch (err: any) {
+      console.error('Error deleting Guarantee:', err)
+      alert(err.response?.data?.detail || 'Failed to delete Bank Guarantee')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleSubmit = async (guaranteeId: number) => {
+    setActionLoading(guaranteeId)
+    try {
+      await api.post(`/guarantee/${guaranteeId}/submit`)
+      fetchGuarantees()
+    } catch (err: any) {
+      console.error('Error submitting Guarantee:', err)
+      alert(err.response?.data?.detail || 'Failed to submit Bank Guarantee')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleApprove = async (guaranteeId: number) => {
+    setActionLoading(guaranteeId)
+    try {
+      await api.post(`/guarantee/${guaranteeId}/approve`)
+      fetchGuarantees()
+    } catch (err: any) {
+      console.error('Error approving Guarantee:', err)
+      alert(err.response?.data?.detail || 'Failed to approve Bank Guarantee')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleReject = async (guaranteeId: number) => {
+    setActionLoading(guaranteeId)
+    try {
+      await api.post(`/guarantee/${guaranteeId}/reject`)
+      fetchGuarantees()
+    } catch (err: any) {
+      console.error('Error rejecting Guarantee:', err)
+      alert(err.response?.data?.detail || 'Failed to reject Bank Guarantee')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const getAvailableActions = (guarantee: GuaranteeItem) => {
+    const actions = []
+    const currentStatus = guarantee.status
+
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'edit', label: 'Edit', icon: Edit, handler: () => handleEdit(guarantee.id) })
+    }
+
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'submit', label: 'Submit', icon: Send, handler: () => handleSubmit(guarantee.id) })
+    }
+
+    if (currentStatus === 'submitted') {
+      actions.push({ key: 'approve', label: 'Approve', icon: Check, handler: () => handleApprove(guarantee.id) })
+    }
+
+    if (currentStatus === 'submitted') {
+      actions.push({ key: 'reject', label: 'Reject', icon: X, handler: () => handleReject(guarantee.id) })
+    }
+
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'delete', label: 'Delete', icon: Trash2, handler: () => setShowDeleteConfirm(guarantee.id) })
+    }
+
+    return actions
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -174,7 +270,7 @@ export default function GuaranteeList() {
             Manage and track all Bank Guarantees
           </p>
         </div>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={() => navigate('/guarantee/new')}>
           <Plus className="h-5 w-5 mr-2" />
           Create Guarantee
         </button>
@@ -378,24 +474,51 @@ export default function GuaranteeList() {
                         </td>
                         <td>
                           <div className="flex items-center space-x-2">
-                            <button
+                            <Link
+                              to={`/guarantee/${guarantee.id}`}
                               className="p-1 text-secondary-400 hover:text-primary-600"
                               title="View Details"
                             >
                               <Eye className="w-4 h-4" />
-                            </button>
+                            </Link>
                             <button
+                              onClick={() => handleEdit(guarantee.id)}
                               className="p-1 text-secondary-400 hover:text-primary-600"
                               title="Edit"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button
-                              className="p-1 text-secondary-400 hover:text-primary-600"
-                              title="More Actions"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowActionsMenu(showActionsMenu === guarantee.id ? null : guarantee.id)}
+                                className="p-1 text-secondary-400 hover:text-primary-600"
+                                title="More Actions"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              {showActionsMenu === guarantee.id && (
+                                <div className="absolute right-0 mt-1 w-40 bg-white border border-secondary-200 rounded-md shadow-lg z-10">
+                                  {getAvailableActions(guarantee).map((action) => (
+                                    <button
+                                      key={action.key}
+                                      onClick={() => {
+                                        action.handler()
+                                        setShowActionsMenu(null)
+                                      }}
+                                      disabled={actionLoading === guarantee.id}
+                                      className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
+                                    >
+                                      {actionLoading === guarantee.id && action.key !== 'edit' ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <action.icon className="w-4 h-4" />
+                                      )}
+                                      <span>{action.label}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -457,6 +580,40 @@ export default function GuaranteeList() {
             >
               <ChevronRight className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Confirm Delete</h3>
+            <p className="text-secondary-600 mb-6">
+              Are you sure you want to delete this Bank Guarantee? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="btn-outline"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(showDeleteConfirm)}
+                disabled={actionLoading === showDeleteConfirm}
+                className="btn-danger"
+              >
+                {actionLoading === showDeleteConfirm ? (
+                  <span className="flex items-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </span>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

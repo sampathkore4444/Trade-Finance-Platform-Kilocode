@@ -7,9 +7,15 @@ import LCList from '@/pages/lc/LCList'
 import LCCreate from '@/pages/lc/LCCreate'
 import LCDetail from '@/pages/lc/LCDetail'
 import GuaranteeList from '@/pages/guarantee/GuaranteeList'
+import GuaranteeCreate from '@/pages/guarantee/GuaranteeCreate'
 import CollectionList from '@/pages/collection/CollectionList'
+import CollectionCreate from '@/pages/collection/CollectionCreate'
+import CollectionDetail from '@/pages/collection/CollectionDetail'
 import InvoiceList from '@/pages/invoice/InvoiceList'
+import InvoiceCreate from '@/pages/invoice/InvoiceCreate'
+import InvoiceDetail from '@/pages/invoice/InvoiceDetail'
 import LoanList from '@/pages/loan/LoanList'
+import LoanCreate from '@/pages/loan/LoanCreate'
 import RiskDashboard from '@/pages/risk/RiskDashboard'
 import ComplianceDashboard from '@/pages/compliance/ComplianceDashboard'
 import Reports from '@/pages/reports/Reports'
@@ -61,21 +67,28 @@ function App() {
         {/* Bank Guarantee Routes */}
         <Route path="guarantee">
           <Route index element={<GuaranteeList />} />
+          <Route path="new" element={<GuaranteeCreate />} />
         </Route>
         
         {/* Documentary Collection Routes */}
         <Route path="collection">
           <Route index element={<CollectionList />} />
+          <Route path="new" element={<CollectionCreate />} />
+          <Route path=":id" element={<CollectionDetail />} />
         </Route>
         
         {/* Invoice Financing Routes */}
         <Route path="invoice">
           <Route index element={<InvoiceList />} />
+          <Route path="new" element={<InvoiceCreate />} />
+          <Route path=":id" element={<InvoiceDetail />} />
         </Route>
         
         {/* Trade Loan Routes */}
         <Route path="loan">
           <Route index element={<LoanList />} />
+          <Route path="new" element={<LoanCreate />} />
+          <Route path=":id" element={<LoanCreate />} />
         </Route>
         
         {/* Risk Management Routes */}

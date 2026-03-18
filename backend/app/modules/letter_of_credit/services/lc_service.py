@@ -4,7 +4,7 @@ Letter of Credit Service for Trade Finance Platform
 This module contains business logic for Letter of Credit operations.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional, List, Tuple
 from sqlalchemy import select, and_, or_, func
@@ -26,6 +26,15 @@ from app.common.exceptions import (
 )
 from app.common.helpers import generate_random_string
 from app.core.security.audit_logger import audit_logger, AuditAction
+
+
+def _strip_tz(dt: Optional[datetime]) -> Optional[datetime]:
+    """Strip timezone info from datetime to match database column type"""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
 
 
 class LCService:
@@ -70,6 +79,12 @@ class LCService:
         """
         # Generate LC number
         lc_number = await self.generate_lc_number()
+
+        # Strip timezone from date fields to match database columns
+        date_fields = ["issue_date", "expiry_date", "last_shipment_date"]
+        for field in date_fields:
+            if field in kwargs and kwargs[field]:
+                kwargs[field] = _strip_tz(kwargs[field])
 
         # Create LC
         lc = LetterOfCredit(

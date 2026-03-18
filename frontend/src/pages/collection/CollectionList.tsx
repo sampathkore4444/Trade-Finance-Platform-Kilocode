@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus,
   Search,
@@ -18,6 +19,11 @@ import {
   AlertCircle,
   Clock,
   CheckCircle,
+  Trash2,
+  Check,
+  X,
+  Loader2,
+  Send,
 } from 'lucide-react'
 import api from '@/api/axios'
 
@@ -73,6 +79,7 @@ const STATUS_OPTIONS = [
 ]
 
 export default function CollectionList() {
+  const navigate = useNavigate()
   const [collections, setCollections] = useState<CollectionItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -83,6 +90,11 @@ export default function CollectionList() {
   const [collectionType, setCollectionType] = useState('')
   const [status, setStatus] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+
+  // Action states
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
+  const [showActionsMenu, setShowActionsMenu] = useState<number | null>(null)
 
   useEffect(() => {
     fetchCollections()
@@ -130,6 +142,103 @@ export default function CollectionList() {
     return STATUS_CONFIG[status] || { color: 'text-secondary-600', bg: 'bg-secondary-100', label: status }
   }
 
+  // Action handlers
+  const handleView = (collectionId: number) => {
+    navigate(`/collection/${collectionId}`)
+  }
+
+  const handleEdit = (collectionId: number) => {
+    navigate(`/collection/${collectionId}`)
+  }
+
+  const handleDelete = async (collectionId: number) => {
+    setActionLoading(collectionId)
+    try {
+      await api.delete(`/collection/collections/${collectionId}`)
+      setShowDeleteConfirm(null)
+      fetchCollections()
+    } catch (err: any) {
+      console.error('Error deleting Collection:', err)
+      alert(err.response?.data?.detail || 'Failed to delete Documentary Collection')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleSubmit = async (collectionId: number) => {
+    setActionLoading(collectionId)
+    try {
+      await api.post(`/collection/collections/${collectionId}/submit`)
+      fetchCollections()
+    } catch (err: any) {
+      console.error('Error submitting Collection:', err)
+      alert(err.response?.data?.detail || 'Failed to submit Documentary Collection')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleApprove = async (collectionId: number) => {
+    setActionLoading(collectionId)
+    try {
+      await api.post(`/collection/collections/${collectionId}/approve`)
+      fetchCollections()
+    } catch (err: any) {
+      console.error('Error approving Collection:', err)
+      alert(err.response?.data?.detail || 'Failed to approve Documentary Collection')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleReject = async (collectionId: number) => {
+    setActionLoading(collectionId)
+    try {
+      await api.post(`/collection/collections/${collectionId}/reject`)
+      fetchCollections()
+    } catch (err: any) {
+      console.error('Error rejecting Collection:', err)
+      alert(err.response?.data?.detail || 'Failed to reject Documentary Collection')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const getAvailableActions = (collection: CollectionItem) => {
+    const actions = []
+    const currentStatus = collection.status
+
+    // Edit - for draft
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'edit', label: 'Edit', icon: Edit, handler: () => handleEdit(collection.id) })
+    }
+
+    // Submit - for draft
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'submit', label: 'Submit', icon: Send, handler: () => handleSubmit(collection.id) })
+    }
+
+    // View - available for all
+    actions.push({ key: 'view', label: 'View', icon: Eye, handler: () => handleView(collection.id) })
+
+    // Approve - for submitted
+    if (currentStatus === 'submitted') {
+      actions.push({ key: 'approve', label: 'Approve', icon: Check, handler: () => handleApprove(collection.id) })
+    }
+
+    // Reject - for submitted
+    if (currentStatus === 'submitted') {
+      actions.push({ key: 'reject', label: 'Reject', icon: X, handler: () => handleReject(collection.id) })
+    }
+
+    // Delete - for draft
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'delete', label: 'Delete', icon: Trash2, handler: () => setShowDeleteConfirm(collection.id) })
+    }
+
+    return actions
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -137,7 +246,7 @@ export default function CollectionList() {
           <h1 className="text-2xl font-bold text-secondary-900">Documentary Collections</h1>
           <p className="text-sm text-secondary-500 mt-1">Manage Documentary Collections (D/A, D/P)</p>
         </div>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={() => navigate('/collection/new')}>
           <Plus className="h-5 w-5 mr-2" />Create Collection
         </button>
       </div>
@@ -234,9 +343,17 @@ export default function CollectionList() {
                         <td><span className={`badge ${statusConfig.bg} ${statusConfig.color}`}>{statusConfig.label}</span></td>
                         <td className="text-secondary-500">{formatDate(c.created_at)}</td>
                         <td>
-                          <div className="flex items-center space-x-2">
-                            <button className="p-1 text-secondary-400 hover:text-primary-600"><Eye className="w-4 h-4" /></button>
-                            <button className="p-1 text-secondary-400 hover:text-primary-600"><Edit className="w-4 h-4" /></button>
+                          <div className="flex items-center space-x-1">
+                            {getAvailableActions(c).slice(0, 6).map((action) => (
+                              <button
+                                key={action.key}
+                                onClick={action.handler}
+                                className="p-1 text-secondary-400 hover:text-primary-600"
+                                title={action.label}
+                              >
+                                <action.icon className="w-4 h-4" />
+                              </button>
+                            ))}
                           </div>
                         </td>
                       </tr>
@@ -255,6 +372,40 @@ export default function CollectionList() {
           <div className="flex items-center space-x-2">
             <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="btn-outline btn-sm disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
             <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="btn-outline btn-sm disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Confirm Delete</h3>
+            <p className="text-secondary-600 mb-6">
+              Are you sure you want to delete this Documentary Collection? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="btn-outline"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(showDeleteConfirm)}
+                disabled={actionLoading === showDeleteConfirm}
+                className="btn-danger"
+              >
+                {actionLoading === showDeleteConfirm ? (
+                  <span className="flex items-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </span>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

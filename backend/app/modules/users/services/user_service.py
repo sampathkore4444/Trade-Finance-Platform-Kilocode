@@ -13,7 +13,9 @@ from sqlalchemy.orm import selectinload
 from app.modules.users.models.user import User, UserStatus
 from app.modules.users.models.role import Role
 from app.modules.users.models.session import UserSession
+from app.database import AsyncSessionLocal
 from app.core.auth.jwt_handler import jwt_handler
+from app.core.auth.rbac_handler import rbac_handler
 from app.core.security.audit_logger import audit_logger, AuditAction
 from app.common.exceptions import (
     NotFoundException,
@@ -174,9 +176,26 @@ class UserService:
 
     async def create_tokens(self, user: User) -> Tuple[str, str]:
         """Create access and refresh tokens for user."""
-        # Use empty lists to avoid lazy loading issues in async context
-        roles = []
-        permissions = []
+        # Fetch user roles from database
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(User).options(selectinload(User.roles)).where(User.id == user.id)
+            )
+            user_with_roles = result.scalar_one_or_none()
+
+            if user_with_roles and user_with_roles.roles:
+                roles = [role.name for role in user_with_roles.roles]
+                # Get permissions from roles using RBAC handler
+                permissions = []
+                for role in user_with_roles.roles:
+                    role_perms = rbac_handler.get_role_permissions(role.name)
+                    permissions.extend([p.value for p in role_perms])
+            else:
+                roles = []
+                permissions = []
 
         access_token = jwt_handler.create_access_token(
             subject=user.username,

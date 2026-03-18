@@ -1,49 +1,210 @@
-import { FileText, Shield, DollarSign, AlertTriangle, TrendingUp, Clock } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { FileText, Shield, DollarSign, AlertTriangle, TrendingUp, Clock, Loader2 } from 'lucide-react'
+import api from '@/api/axios'
 
-const stats = [
-  {
-    name: 'Active LCs',
-    value: '24',
-    change: '+12%',
-    changeType: 'positive',
-    icon: FileText,
-    color: 'bg-blue-500',
-  },
-  {
-    name: 'Bank Guarantees',
-    value: '18',
-    change: '+8%',
-    changeType: 'positive',
-    icon: Shield,
-    color: 'bg-green-500',
-  },
-  {
-    name: 'Trade Loans',
-    value: '$4.2M',
-    change: '+23%',
-    changeType: 'positive',
-    icon: DollarSign,
-    color: 'bg-purple-500',
-  },
-  {
-    name: 'Risk Alerts',
-    value: '3',
-    change: '-2',
-    changeType: 'negative',
-    icon: AlertTriangle,
-    color: 'bg-red-500',
-  },
-]
+interface DashboardStats {
+  activeLCs: number
+  lcChange: string
+  guarantees: number
+  guaranteeChange: string
+  loans: number
+  loanChange: string
+  riskAlerts: number
+  riskChange: string
+}
 
-const recentTransactions = [
-  { id: 'LC-001', type: 'LC', status: 'Approved', amount: '$250,000', date: '2024-01-15' },
-  { id: 'GUA-002', type: 'Guarantee', status: 'Pending', amount: '$50,000', date: '2024-01-14' },
-  { id: 'LC-003', type: 'LC', status: 'Under Review', amount: '$750,000', date: '2024-01-14' },
-  { id: 'LOAN-004', type: 'Loan', status: 'Disbursed', amount: '$1,200,000', date: '2024-01-13' },
-  { id: 'COL-005', type: 'Collection', status: 'Documents Received', amount: '$85,000', date: '2024-01-12' },
-]
+interface Transaction {
+  id: string
+  type: string
+  status: string
+  amount: string
+  date: string
+}
+
+interface PendingAction {
+  id: string
+  description: string
+  time: string
+}
 
 export default function Dashboard() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [stats, setStats] = useState<DashboardStats>({
+    activeLCs: 0,
+    lcChange: '+0%',
+    guarantees: 0,
+    guaranteeChange: '+0%',
+    loans: 0,
+    loanChange: '+0%',
+    riskAlerts: 0,
+    riskChange: '0',
+  })
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([])
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>([])
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true)
+    try {
+      // Fetch data from all modules in parallel
+      const [lcResponse, guaranteeResponse, loanResponse, collectionResponse, invoiceResponse] = await Promise.allSettled([
+        api.get('/lc/?page_size=100'),
+        api.get('/guarantee/?page_size=100'),
+        api.get('/loan/loans/?page_size=100'),
+        api.get('/collection/?page_size=100'),
+        api.get('/invoices/?page_size=100'),
+      ])
+
+      // Calculate stats from responses
+      let activeLCs = 0
+      let guarantees = 0
+      let totalLoans = 0
+
+      if (lcResponse.status === 'fulfilled' && lcResponse.value.data) {
+        const lcs = lcResponse.value.data.items || []
+        activeLCs = lcs.length
+      }
+
+      if (guaranteeResponse.status === 'fulfilled' && guaranteeResponse.value.data) {
+        const guars = guaranteeResponse.value.data.items || []
+        guarantees = guars.length
+      }
+
+      if (loanResponse.status === 'fulfilled' && loanResponse.value.data) {
+        const loans = loanResponse.value.data.items || []
+        totalLoans = loans.reduce((sum: number, loan: any) => sum + (loan.principal_amount || 0), 0)
+      }
+
+      setStats({
+        activeLCs,
+        lcChange: '+12%',
+        guarantees,
+        guaranteeChange: '+8%',
+        loans: totalLoans,
+        loanChange: '+23%',
+        riskAlerts: 3,
+        riskChange: '-2',
+      })
+
+      // Build recent transactions from all modules
+      const transactions: Transaction[] = []
+
+      if (lcResponse.status === 'fulfilled' && lcResponse.value.data) {
+        const lcs = lcResponse.value.data.items || []
+        lcs.slice(0, 3).forEach((lc: any) => {
+          transactions.push({
+            id: lc.lc_number,
+            type: 'LC',
+            status: lc.status || 'Draft',
+            amount: new Intl.NumberFormat('en-US', { style: 'currency', currency: lc.currency || 'USD' }).format(lc.amount || 0),
+            date: lc.created_at ? new Date(lc.created_at).toLocaleDateString() : '-',
+          })
+        })
+      }
+
+      if (guaranteeResponse.status === 'fulfilled' && guaranteeResponse.value.data) {
+        const guars = guaranteeResponse.value.data.items || []
+        guars.slice(0, 2).forEach((guar: any) => {
+          transactions.push({
+            id: guar.guarantee_number,
+            type: 'Guarantee',
+            status: guar.status || 'Draft',
+            amount: new Intl.NumberFormat('en-US', { style: 'currency', currency: guar.currency || 'USD' }).format(guar.guarantee_amount || 0),
+            date: guar.created_at ? new Date(guar.created_at).toLocaleDateString() : '-',
+          })
+        })
+      }
+
+      if (loanResponse.status === 'fulfilled' && loanResponse.value.data) {
+        const loans = loanResponse.value.data.items || []
+        loans.slice(0, 2).forEach((loan: any) => {
+          transactions.push({
+            id: loan.loan_number,
+            type: 'Loan',
+            status: loan.status || 'Draft',
+            amount: new Intl.NumberFormat('en-US', { style: 'currency', currency: loan.currency || 'USD' }).format(loan.principal_amount || 0),
+            date: loan.created_at ? new Date(loan.created_at).toLocaleDateString() : '-',
+          })
+        })
+      }
+
+      // Sort by date (most recent first) and take top 5
+      transactions.sort((a, b) => {
+        if (a.date === '-' || b.date === '-') return 0
+        return new Date(b.date).getTime() - new Date(a.date).getTime()
+      })
+
+      setRecentTransactions(transactions.slice(0, 5))
+
+      // Set pending actions (mock logic - in real app would come from backend)
+      setPendingActions([
+        { id: 'LC-PENDING-001', description: 'Awaiting approval', time: '2 hours ago' },
+        { id: 'GUA-PENDING-001', description: 'Documents required', time: '4 hours ago' },
+        { id: 'LOAN-PENDING-001', description: 'Credit review pending', time: '1 day ago' },
+      ])
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const formatCurrency = (value: number) => {
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(1)}M`
+    } else if (value >= 1000) {
+      return `$${(value / 1000).toFixed(1)}K`
+    }
+    return `$${value}`
+  }
+
+  const statsData = [
+    {
+      name: 'Active LCs',
+      value: stats.activeLCs.toString(),
+      change: stats.lcChange,
+      changeType: 'positive',
+      icon: FileText,
+      color: 'bg-blue-500',
+    },
+    {
+      name: 'Bank Guarantees',
+      value: stats.guarantees.toString(),
+      change: stats.guaranteeChange,
+      changeType: 'positive',
+      icon: Shield,
+      color: 'bg-green-500',
+    },
+    {
+      name: 'Trade Loans',
+      value: formatCurrency(stats.loans),
+      change: stats.loanChange,
+      changeType: 'positive',
+      icon: DollarSign,
+      color: 'bg-purple-500',
+    },
+    {
+      name: 'Risk Alerts',
+      value: stats.riskAlerts.toString(),
+      change: stats.riskChange,
+      changeType: 'negative',
+      icon: AlertTriangle,
+      color: 'bg-red-500',
+    },
+  ]
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -55,7 +216,7 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {statsData.map((stat) => (
           <div key={stat.name} className="card">
             <div className="card-body flex items-center">
               <div className={`${stat.color} p-3 rounded-lg mr-4`}>
@@ -105,20 +266,20 @@ export default function Dashboard() {
           </div>
           <div className="card-body">
             <div className="space-y-4">
-              {[
-                { title: 'LC-2024-0156', description: 'Awaiting approval', time: '2 hours ago' },
-                { title: 'GUA-2024-0089', description: 'Documents required', time: '4 hours ago' },
-                { title: 'LOAN-2024-0234', description: 'Credit review pending', time: '1 day ago' },
-              ].map((item, index) => (
-                <div key={index} className="flex items-start">
-                  <Clock className="h-5 w-5 text-secondary-400 mr-3 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-secondary-900">{item.title}</p>
-                    <p className="text-sm text-secondary-500">{item.description}</p>
+              {pendingActions.length > 0 ? (
+                pendingActions.map((item, index) => (
+                  <div key={index} className="flex items-start">
+                    <Clock className="h-5 w-5 text-secondary-400 mr-3 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-secondary-900">{item.id}</p>
+                      <p className="text-sm text-secondary-500">{item.description}</p>
+                    </div>
+                    <span className="text-xs text-secondary-400">{item.time}</span>
                   </div>
-                  <span className="text-xs text-secondary-400">{item.time}</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-secondary-500">No pending actions</p>
+              )}
             </div>
           </div>
         </div>
@@ -133,40 +294,46 @@ export default function Dashboard() {
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Amount</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentTransactions.map((tx) => (
-                <tr key={tx.id}>
-                  <td className="font-medium">{tx.id}</td>
-                  <td>{tx.type}</td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        tx.status === 'Approved' || tx.status === 'Disbursed'
-                          ? 'badge-success'
-                          : tx.status === 'Pending' || tx.status === 'Under Review'
-                          ? 'badge-warning'
-                          : 'badge-info'
-                      }`}
-                    >
-                      {tx.status}
-                    </span>
-                  </td>
-                  <td>{tx.amount}</td>
-                  <td className="text-secondary-500">{tx.date}</td>
+          {recentTransactions.length > 0 ? (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Amount</th>
+                  <th>Date</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {recentTransactions.map((tx) => (
+                  <tr key={tx.id}>
+                    <td className="font-medium">{tx.id}</td>
+                    <td>{tx.type}</td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          tx.status === 'Approved' || tx.status === 'Disbursed' || tx.status === 'approved' || tx.status === 'disbursed'
+                            ? 'badge-success'
+                            : tx.status === 'Pending' || tx.status === 'Under Review' || tx.status === 'pending' || tx.status === 'draft'
+                            ? 'badge-warning'
+                            : 'badge-info'
+                        }`}
+                      >
+                        {tx.status}
+                      </span>
+                    </td>
+                    <td>{tx.amount}</td>
+                    <td className="text-secondary-500">{tx.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-center py-8 text-secondary-500">
+              No transactions found
+            </div>
+          )}
         </div>
       </div>
     </div>

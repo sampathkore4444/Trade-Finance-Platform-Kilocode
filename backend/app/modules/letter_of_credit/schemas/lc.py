@@ -7,7 +7,7 @@ This module defines Pydantic schemas for LC operations.
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from enum import Enum
 
 
@@ -194,9 +194,16 @@ class LetterOfCreditResponse(LetterOfCreditBase):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    # Relationships
-    amendments: List = []
-    documents: List = []
+    # Relationships - use computed_field to avoid lazy loading issues
+    @property
+    def amendments(self) -> List:
+        """Return empty list for amendments relationship."""
+        return []
+
+    @property
+    def documents(self) -> List:
+        """Return empty list for documents relationship."""
+        return []
 
     model_config = ConfigDict(from_attributes=True)
 

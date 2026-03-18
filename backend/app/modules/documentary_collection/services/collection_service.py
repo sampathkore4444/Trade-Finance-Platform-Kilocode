@@ -5,7 +5,6 @@ Handles business logic for documentary collections (import/export collections)
 
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_
 from sqlalchemy.orm import selectinload
@@ -33,7 +32,7 @@ class DocumentaryCollectionService:
     async def create_collection(
         self,
         collection_data: DocumentaryCollectionCreate,
-        user_id: UUID,
+        user_id: int,
     ) -> DocumentaryCollection:
         """
         Create a new documentary collection
@@ -42,18 +41,24 @@ class DocumentaryCollectionService:
             collection_number=self._generate_collection_number(),
             collection_type=collection_data.collection_type,
             applicant_name=collection_data.applicant_name,
-            applicant_account=collection_data.applicant_account,
+            applicant_address=collection_data.applicant_address,
+            applicant_country=collection_data.applicant_country,
             beneficiary_name=collection_data.beneficiary_name,
-            beneficiary_bank=collection_data.beneficiary_bank,
-            beneficiary_account=collection_data.beneficiary_account,
+            beneficiary_address=collection_data.beneficiary_address,
+            beneficiary_country=collection_data.beneficiary_country,
+            remitting_bank_name=collection_data.remitting_bank_name,
+            remitting_bank_bic=collection_data.remitting_bank_bic,
+            collecting_bank_name=collection_data.collecting_bank_name,
+            collecting_bank_bic=collection_data.collecting_bank_bic,
+            presenting_bank_name=collection_data.presenting_bank_name,
+            presenting_bank_bic=collection_data.presenting_bank_bic,
             currency=collection_data.currency,
             amount=collection_data.amount,
-            tenor_days=collection_data.tenor_days,
-            description=collection_data.description,
-            # Shipment details
-            port_of_loading=collection_data.port_of_loading,
-            port_of_discharge=collection_data.port_of_discharge,
-            goods_description=collection_data.goods_description,
+            issue_date=collection_data.issue_date,
+            due_date=collection_data.due_date,
+            documents_description=collection_data.documents_description,
+            invoice_number=collection_data.invoice_number,
+            internal_reference=collection_data.internal_reference,
             # Status
             status=CollectionStatus.DRAFT,
             created_by=user_id,
@@ -68,7 +73,7 @@ class DocumentaryCollectionService:
         return collection
 
     async def get_collection_by_id(
-        self, collection_id: UUID
+        self, collection_id: int
     ) -> Optional[DocumentaryCollection]:
         """
         Get a documentary collection by ID
@@ -113,13 +118,15 @@ class DocumentaryCollectionService:
             # Search in collection number, drawer name, or drawee name
             search_pattern = f"%{search}%"
             query = query.where(
-                (DocumentaryCollection.collection_number.ilike(search_pattern)) |
-                (DocumentaryCollection.applicant_name.ilike(search_pattern)) |
-                (DocumentaryCollection.beneficiary_name.ilike(search_pattern))
+                (DocumentaryCollection.collection_number.ilike(search_pattern))
+                | (DocumentaryCollection.applicant_name.ilike(search_pattern))
+                | (DocumentaryCollection.beneficiary_name.ilike(search_pattern))
             )
 
         if collection_type:
-            query = query.where(DocumentaryCollection.collection_type == collection_type)
+            query = query.where(
+                DocumentaryCollection.collection_type == collection_type
+            )
 
         query = (
             query.offset(skip)
@@ -147,22 +154,24 @@ class DocumentaryCollectionService:
         if search:
             search_pattern = f"%{search}%"
             query = query.where(
-                (DocumentaryCollection.collection_number.ilike(search_pattern)) |
-                (DocumentaryCollection.applicant_name.ilike(search_pattern)) |
-                (DocumentaryCollection.beneficiary_name.ilike(search_pattern))
+                (DocumentaryCollection.collection_number.ilike(search_pattern))
+                | (DocumentaryCollection.applicant_name.ilike(search_pattern))
+                | (DocumentaryCollection.beneficiary_name.ilike(search_pattern))
             )
 
         if collection_type:
-            query = query.where(DocumentaryCollection.collection_type == collection_type)
+            query = query.where(
+                DocumentaryCollection.collection_type == collection_type
+            )
 
         result = await self.db.execute(query)
         return len(list(result.scalars().all()))
 
     async def update_collection(
         self,
-        collection_id: UUID,
+        collection_id: int,
         collection_data: DocumentaryCollectionUpdate,
-        user_id: UUID,
+        user_id,
     ) -> Optional[DocumentaryCollection]:
         """
         Update a documentary collection
@@ -185,9 +194,9 @@ class DocumentaryCollectionService:
 
     async def update_status(
         self,
-        collection_id: UUID,
+        collection_id: int,
         new_status: CollectionStatus,
-        user_id: UUID,
+        user_id,
         remarks: Optional[str] = None,
     ) -> Optional[DocumentaryCollection]:
         """
@@ -225,7 +234,7 @@ class DocumentaryCollectionService:
         return collection
 
     async def submit_for_approval(
-        self, collection_id: UUID, user_id: UUID
+        self, collection_id: int, user_id
     ) -> Optional[DocumentaryCollection]:
         """
         Submit documentary collection for approval
@@ -239,8 +248,8 @@ class DocumentaryCollectionService:
 
     async def approve_collection(
         self,
-        collection_id: UUID,
-        user_id: UUID,
+        collection_id: int,
+        user_id,
         remarks: Optional[str] = None,
     ) -> Optional[DocumentaryCollection]:
         """
@@ -255,8 +264,8 @@ class DocumentaryCollectionService:
 
     async def reject_collection(
         self,
-        collection_id: UUID,
-        user_id: UUID,
+        collection_id: int,
+        user_id,
         reason: str,
     ) -> Optional[DocumentaryCollection]:
         """
@@ -270,7 +279,7 @@ class DocumentaryCollectionService:
         )
 
     async def process_collection(
-        self, collection_id: UUID, user_id: UUID
+        self, collection_id: int, user_id
     ) -> Optional[DocumentaryCollection]:
         """
         Process the documentary collection (after approval)
@@ -284,8 +293,8 @@ class DocumentaryCollectionService:
 
     async def complete_collection(
         self,
-        collection_id: UUID,
-        user_id: UUID,
+        collection_id: int,
+        user_id,
         final_amount: Optional[float] = None,
     ) -> Optional[DocumentaryCollection]:
         """
@@ -307,8 +316,8 @@ class DocumentaryCollectionService:
 
     async def cancel_collection(
         self,
-        collection_id: UUID,
-        user_id: UUID,
+        collection_id: int,
+        user_id,
         reason: str,
     ) -> Optional[DocumentaryCollection]:
         """
@@ -323,8 +332,8 @@ class DocumentaryCollectionService:
 
     async def add_document(
         self,
-        collection_id: UUID,
-        document_id: UUID,
+        collection_id: int,
+        document_id,
     ) -> Optional[DocumentaryCollection]:
         """
         Add a document to the collection

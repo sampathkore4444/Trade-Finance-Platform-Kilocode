@@ -4,11 +4,17 @@ Bank Guarantee Schemas for Trade Finance Platform
 This module defines Pydantic schemas for Bank Guarantee operations.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from enum import Enum
+
+from app.modules.bank_guarantee.models.guarantee import (
+    GuaranteeType,
+    GuaranteeStatus,
+    GuaranteeState,
+)
 
 
 class GuaranteeTypeEnum(str, Enum):
@@ -43,7 +49,7 @@ class GuaranteeStatusEnum(str, Enum):
 class BankGuaranteeBase(BaseModel):
     """Base Bank Guarantee schema."""
 
-    guarantee_type: GuaranteeTypeEnum
+    guarantee_type: GuaranteeType
 
     # Applicant
     applicant_name: Optional[str] = None
@@ -82,6 +88,23 @@ class BankGuaranteeBase(BaseModel):
     internal_reference: Optional[str] = None
     external_reference: Optional[str] = None
     related_contract_id: Optional[str] = None
+
+    @field_validator("expiry_date", "effective_date", mode="before")
+    @classmethod
+    def naive_datetime(cls, v):
+        """Convert timezone-aware datetime to naive datetime for database compatibility."""
+        if v is None:
+            return v
+        # If it's a string, try to parse it first
+        if isinstance(v, str):
+            from dateutil import parser
+
+            v = parser.parse(v)
+        # Now check if it's a datetime object with timezone info
+        if hasattr(v, "tzinfo") and v.tzinfo is not None:
+            # Convert to UTC then remove timezone info
+            v = v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
 
 
 class BankGuaranteeCreate(BankGuaranteeBase):
@@ -151,8 +174,8 @@ class BankGuaranteeResponse(BankGuaranteeBase):
 
     id: int
     guarantee_number: str
-    status: GuaranteeStatusEnum
-    state: str
+    status: GuaranteeStatus
+    state: GuaranteeState
     is_revokable: bool
     is_auto_renewal: bool
 
@@ -197,6 +220,27 @@ class BankGuaranteeResponse(BankGuaranteeBase):
     # Timestamps
     created_at: datetime
     updated_at: Optional[datetime]
+
+    # Relationships - use computed_field to avoid lazy loading issues
+    @property
+    def applicant(self) -> Optional[dict]:
+        """Return None for applicant relationship."""
+        return None
+
+    @property
+    def beneficiary(self) -> Optional[dict]:
+        """Return None for beneficiary relationship."""
+        return None
+
+    @property
+    def issuing_bank(self) -> Optional[dict]:
+        """Return None for issuing_bank relationship."""
+        return None
+
+    @property
+    def creator(self) -> Optional[dict]:
+        """Return None for creator relationship."""
+        return None
 
     model_config = ConfigDict(from_attributes=True)
 

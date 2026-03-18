@@ -17,8 +17,8 @@ class UserSession(Base):
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    token = Column(String(500), unique=True, nullable=False, index=True)
-    refresh_token = Column(String(500), unique=True, index=True)
+    token = Column(String(2000), unique=True, nullable=False, index=True)
+    refresh_token = Column(String(2000), unique=True, index=True)
     ip_address = Column(String(45))
     user_agent = Column(String(500))
     device_info = Column(String(255))

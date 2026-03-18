@@ -55,7 +55,7 @@ async def list_lcs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
-    status: Optional[str] = None,
+    lc_status: Optional[str] = None,
     lc_type: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -69,7 +69,7 @@ async def list_lcs(
         )
 
     # Convert status string to enum
-    status_enum = LCStatus[status.upper()] if status else None
+    status_enum = LCStatus[lc_status.upper()] if lc_status else None
     type_enum = LCType[lc_type.upper()] if lc_type else None
 
     lcs, total = await lc_service.list_lcs(
@@ -373,6 +373,28 @@ async def process_payment(
         )
         await db.commit()
         return LetterOfCreditResponse.model_validate(lc)
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except BusinessRuleViolationException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.delete("/{lc_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_lc(
+    lc_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Delete Letter of Credit.
+    """
+    try:
+        await lc_service.delete_lc(
+            db=db,
+            lc_id=lc_id,
+            user_id=current_user["user_id"],
+        )
+        await db.commit()
     except NotFoundException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except BusinessRuleViolationException as e:

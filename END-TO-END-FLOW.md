@@ -19,6 +19,7 @@ This document explains how each feature works in the Trade Finance Platform, fro
 11. [Reports & Analytics](#reports--analytics)
 12. [Notifications](#notifications)
 13. [Docker Commands](#docker-commands)
+14. [Starting Without Docker](#starting-without-docker)
 
 ---
 
@@ -638,6 +639,381 @@ docker-compose ps
 
 # Scale backend (for load balancing)
 docker-compose up -d --scale backend=3
+```
+
+---
+
+## Starting Without Docker
+
+This section explains how to run the Trade Finance Platform directly on your machine without using Docker.
+
+### Prerequisites
+
+Before starting, ensure you have the following installed:
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| **Python** | 3.9+ | Backend runtime |
+| **Node.js** | 18+ | Frontend runtime |
+| **npm** | 9+ | Frontend package manager |
+| **PostgreSQL** | 14+ | Main database |
+| **Redis** | 7+ | Cache and message queue |
+
+### Setting Up External Services
+
+Since you're not using Docker, you need to install and run PostgreSQL and Redis separately:
+
+#### PostgreSQL Installation & Setup
+
+```bash
+# Windows (using Chocolatey)
+choco install postgresql
+
+# macOS
+brew install postgresql
+
+# Ubuntu/Debian
+sudo apt install postgresql postgresql-contrib
+
+# Create database and user
+psql -U postgres
+CREATE USER tradefinance WITH PASSWORD 'tradefinance123';
+CREATE DATABASE tradefinance OWNER tradefinance;
+GRANT ALL PRIVILEGES ON DATABASE tradefinance TO tradefinance;
+\q
+```
+
+#### Redis Installation & Setup
+
+```bash
+# Windows (using Chocolatey)
+choco install redis
+
+# macOS
+brew install redis
+
+# Ubuntu/Debian
+sudo apt install redis-server
+
+# Start Redis service
+# Windows (as administrator)
+redis-server
+
+# macOS
+brew services start redis
+
+# Linux
+sudo systemctl start redis
+```
+
+---
+
+### Starting the Backend (FastAPI)
+
+#### 1. Navigate to Backend Directory
+
+```bash
+cd "Python/Opencode/Trade Finance Platform Kilocode/backend"
+```
+
+#### 2. Create Virtual Environment (Recommended)
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# Windows
+venv\Scripts\activate
+
+# macOS/Linux
+source venv/bin/activate
+```
+
+#### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+#### 4. Configure Environment Variables
+
+Create a `.env` file in the backend directory:
+
+```bash
+# Copy example environment file
+cp .env.example .env
+```
+
+Edit `.env` with your local settings:
+
+```env
+# Database Configuration
+DATABASE_URL=postgresql://tradefinance:tradefinance123@localhost:5432/tradefinance
+
+# Redis Configuration
+REDIS_URL=redis://localhost:6379/0
+
+# JWT Settings
+SECRET_KEY=your-secret-key-here-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# CORS Settings
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+
+# Application Settings
+DEBUG=true
+LOG_LEVEL=INFO
+```
+
+#### 5. Run Database Migrations
+
+```bash
+# Apply all migrations
+python -m alembic upgrade head
+
+# Create new migration (if needed)
+python -m alembic revision --autogenerate -m "your migration description"
+```
+
+#### 6. Start the Backend Server
+
+```bash
+# Option 1: Using uvicorn directly (note: app directory contains main.py)
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Option 2: Using the run script (if available)
+python run.py
+```
+
+The backend will start at: **http://localhost:8000**
+
+API Documentation will be available at: **http://localhost:8000/docs**
+
+---
+
+### Starting the Frontend (React)
+
+#### 1. Navigate to Frontend Directory
+
+```bash
+cd "Python/Opencode/Trade Finance Platform Kilocode/frontend"
+```
+
+#### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+#### 3. Configure Environment Variables
+
+Create a `.env` file in the frontend directory:
+
+```env
+# API Base URL
+VITE_API_URL=http://localhost:8000
+
+# WebSocket URL
+VITE_WS_URL=ws://localhost:8000
+```
+
+#### 4. Start the Development Server
+
+```bash
+# Using npm
+npm run dev
+
+# Or using yarn
+yarn dev
+```
+
+The frontend will start at: **http://localhost:5173** (Vite default)
+
+---
+
+### Stopping the Servers
+
+#### Stopping the Backend
+
+```bash
+# If running in terminal, press
+Ctrl + C
+
+# Or find and kill the process
+# Windows
+netstat -ano | findstr :8000
+taskkill /PID <PID> /F
+
+# macOS/Linux
+lsof -i :8000
+kill -9 <PID>
+```
+
+#### Stopping the Frontend
+
+```bash
+# If running in terminal, press
+Ctrl + C
+
+# Or find and kill the process
+# Windows
+netstat -ano | findstr :5173
+taskkill /PID <PID> /F
+
+# macOS/Linux
+lsof -i :5173
+kill -9 <PID>
+```
+
+#### Stopping PostgreSQL and Redis
+
+```bash
+# Stop PostgreSQL
+# Windows (as administrator)
+pg_ctl -D "C:\Program Files\PostgreSQL\<version>\data" stop
+
+# macOS
+brew services stop postgresql
+
+# Linux
+sudo systemctl stop postgresql
+
+# Stop Redis
+# Windows
+redis-cli shutdown
+
+# macOS
+brew services stop redis
+
+# Linux
+sudo systemctl stop redis
+```
+
+---
+
+### Quick Start Script (Windows)
+
+You can create a batch file to start all services quickly:
+
+```batch
+@echo off
+REM start-services.bat
+
+echo Starting Trade Finance Platform...
+echo.
+
+REM Start Redis
+echo [1/4] Starting Redis...
+start "Redis" redis-server
+
+REM Start PostgreSQL
+echo [2/4] Starting PostgreSQL...
+start "" "C:\Program Files\PostgreSQL\<version>\bin\pg_ctl.exe" -D "C:\Program Files\PostgreSQL\<version>\data" start
+
+REM Start Backend
+echo [3/4] Starting Backend...
+cd /d "%~dp0backend"
+call venv\Scripts\activate
+start "Backend" uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+REM Start Frontend
+echo [4/4] Starting Frontend...
+cd /d "%~dp0frontend"
+start "Frontend" npm run dev
+
+echo.
+echo Platform started!
+echo Backend: http://localhost:8000
+echo Frontend: http://localhost:5173
+echo API Docs: http://localhost:8000/docs
+pause
+```
+
+---
+
+### Quick Start Script (macOS/Linux)
+
+You can create a shell script:
+
+```bash
+#!/bin/bash
+# start-services.sh
+
+echo "Starting Trade Finance Platform..."
+echo ""
+
+# Start Redis
+echo "[1/4] Starting Redis..."
+brew services start redis
+
+# Start PostgreSQL
+echo "[2/4] Starting PostgreSQL..."
+brew services start postgresql
+
+# Start Backend
+echo "[3/4] Starting Backend..."
+cd "$(dirname "$0")/backend"
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+
+# Start Frontend
+echo "[4/4] Starting Frontend..."
+cd "$(dirname "$0")/frontend"
+npm run dev &
+
+echo ""
+echo "Platform started!"
+echo "Backend: http://localhost:8000"
+echo "Frontend: http://localhost:5173"
+echo "API Docs: http://localhost:8000/docs"
+```
+
+---
+
+### Verification
+
+After starting all services, verify everything is working:
+
+```bash
+# Test backend health
+curl http://localhost:8000/health
+
+# Test API documentation
+curl http://localhost:8000/docs
+
+# Test frontend
+curl http://localhost:5173
+```
+
+Expected responses:
+- Backend health: `{"status":"healthy"}` or similar JSON
+- Frontend: HTML page loaded
+
+---
+
+### Troubleshooting
+
+#### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| **Port 8000 in use** | Stop other services or change port: `uvicorn main:app --port 8001` |
+| **Port 5432 in use** | PostgreSQL is already running, or another database is using it |
+| **Redis connection refused** | Ensure Redis is running: `redis-cli ping` should return `PONG` |
+| **Database connection error** | Verify PostgreSQL credentials in `.env` file |
+| **Module not found** | Run `pip install -r requirements.txt` again |
+| **Node modules error** | Delete `node_modules` and run `npm install` again |
+
+#### Reset Database
+
+```bash
+# Drop all tables
+python -m alembic downgrade base
+
+# Recreate tables
+python -m alembic upgrade head
 ```
 
 ---

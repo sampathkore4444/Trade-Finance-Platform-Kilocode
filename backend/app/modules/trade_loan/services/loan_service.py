@@ -13,6 +13,15 @@ from app.common.exceptions import NotFoundException
 from app.common.helpers import generate_random_string
 
 
+def _strip_tz(dt: Optional[datetime]) -> Optional[datetime]:
+    """Strip timezone info from datetime to match database column type."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+
 class TradeLoanService:
     async def generate_loan_number(self) -> str:
         prefix = "LN"
@@ -28,6 +37,12 @@ class TradeLoanService:
         created_by: int,
         **kwargs,
     ) -> TradeLoan:
+        # Strip timezone from date fields to match database columns
+        date_fields = ["start_date", "end_date"]
+        for field in date_fields:
+            if field in kwargs and kwargs[field]:
+                kwargs[field] = _strip_tz(kwargs[field])
+
         loan = TradeLoan(
             loan_number=await self.generate_loan_number(),
             loan_type=loan_type,
@@ -47,6 +62,15 @@ class TradeLoanService:
         if not loan:
             raise NotFoundException(f"Loan {loan_id} not found")
         return loan
+
+    async def delete_loan(self, db: AsyncSession, loan_id: int) -> bool:
+        """Delete a trade loan by ID."""
+        loan = await self.get_loan_by_id(db, loan_id)
+        if loan.status != LoanStatus.DRAFT:
+            raise ValueError("Only draft loans can be deleted")
+        await db.delete(loan)
+        await db.flush()
+        return True
 
     async def list_loans(
         self,

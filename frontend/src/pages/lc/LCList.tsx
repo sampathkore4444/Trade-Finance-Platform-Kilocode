@@ -18,6 +18,10 @@ import {
   DollarSign,
   Calendar,
   AlertCircle,
+  Trash2,
+  Check,
+  X,
+  Loader2,
 } from 'lucide-react'
 import api from '@/api/axios'
 
@@ -98,6 +102,11 @@ export default function LCList() {
   const [status, setStatus] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
+  // Action states
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
+  const [showActionsMenu, setShowActionsMenu] = useState<number | null>(null)
+
   useEffect(() => {
     fetchLCs()
   }, [page, lcType, status])
@@ -113,7 +122,7 @@ export default function LCList() {
       
       if (search) params.append('search', search)
       if (lcType) params.append('lc_type', lcType)
-      if (status) params.append('status', status)
+      if (status) params.append('lc_status', status)
       
       const response = await api.get(`/lc/?${params.toString()}`)
       setLcs(response.data.items)
@@ -157,6 +166,96 @@ export default function LCList() {
 
   const getLcTypeLabel = (type: string) => {
     return LC_TYPES.find(t => t.value === type)?.label || type
+  }
+
+  // Action handlers
+  const handleEdit = (lcId: number) => {
+    navigate(`/lc/${lcId}/edit`)
+  }
+
+  const handleDelete = async (lcId: number) => {
+    setActionLoading(lcId)
+    try {
+      await api.delete(`/lc/${lcId}`)
+      setShowDeleteConfirm(null)
+      fetchLCs() // Refresh the list
+    } catch (err: any) {
+      console.error('Error deleting LC:', err)
+      alert(err.response?.data?.detail || 'Failed to delete Letter of Credit')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleSubmit = async (lcId: number) => {
+    setActionLoading(lcId)
+    try {
+      await api.post(`/lc/${lcId}/submit`)
+      fetchLCs() // Refresh the list
+    } catch (err: any) {
+      console.error('Error submitting LC:', err)
+      alert(err.response?.data?.detail || 'Failed to submit Letter of Credit')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleApprove = async (lcId: number) => {
+    setActionLoading(lcId)
+    try {
+      await api.post(`/lc/${lcId}/approve`)
+      fetchLCs() // Refresh the list
+    } catch (err: any) {
+      console.error('Error approving LC:', err)
+      alert(err.response?.data?.detail || 'Failed to approve Letter of Credit')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleReject = async (lcId: number) => {
+    setActionLoading(lcId)
+    try {
+      await api.post(`/lc/${lcId}/reject`)
+      fetchLCs() // Refresh the list
+    } catch (err: any) {
+      console.error('Error rejecting LC:', err)
+      alert(err.response?.data?.detail || 'Failed to reject Letter of Credit')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const getAvailableActions = (lc: LCItem) => {
+    const actions = []
+    const currentStatus = lc.status
+
+    // Edit - available for draft status
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'edit', label: 'Edit', icon: Edit, handler: () => handleEdit(lc.id) })
+    }
+
+    // Submit - available for draft status
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'submit', label: 'Submit', icon: Send, handler: () => handleSubmit(lc.id) })
+    }
+
+    // Approve - available for submitted status
+    if (currentStatus === 'submitted') {
+      actions.push({ key: 'approve', label: 'Approve', icon: Check, handler: () => handleApprove(lc.id) })
+    }
+
+    // Reject - available for submitted status
+    if (currentStatus === 'submitted') {
+      actions.push({ key: 'reject', label: 'Reject', icon: X, handler: () => handleReject(lc.id) })
+    }
+
+    // Delete - available for draft status only
+    if (currentStatus === 'draft') {
+      actions.push({ key: 'delete', label: 'Delete', icon: Trash2, handler: () => setShowDeleteConfirm(lc.id) })
+    }
+
+    return actions
   }
 
   return (
@@ -384,17 +483,43 @@ export default function LCList() {
                               <Eye className="w-4 h-4" />
                             </Link>
                             <button
+                              onClick={() => handleEdit(lc.id)}
                               className="p-1 text-secondary-400 hover:text-primary-600"
                               title="Edit"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button
-                              className="p-1 text-secondary-400 hover:text-primary-600"
-                              title="More Actions"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowActionsMenu(showActionsMenu === lc.id ? null : lc.id)}
+                                className="p-1 text-secondary-400 hover:text-primary-600"
+                                title="More Actions"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              {showActionsMenu === lc.id && (
+                                <div className="absolute right-0 mt-1 w-40 bg-white border border-secondary-200 rounded-md shadow-lg z-10">
+                                  {getAvailableActions(lc).map((action) => (
+                                    <button
+                                      key={action.key}
+                                      onClick={() => {
+                                        action.handler()
+                                        setShowActionsMenu(null)
+                                      }}
+                                      disabled={actionLoading === lc.id}
+                                      className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
+                                    >
+                                      {actionLoading === lc.id && action.key !== 'edit' ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <action.icon className="w-4 h-4" />
+                                      )}
+                                      <span>{action.label}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -457,6 +582,40 @@ export default function LCList() {
             >
               <ChevronRight className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Confirm Delete</h3>
+            <p className="text-secondary-600 mb-6">
+              Are you sure you want to delete this Letter of Credit? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="btn-outline"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(showDeleteConfirm)}
+                disabled={actionLoading === showDeleteConfirm}
+                className="btn-danger"
+              >
+                {actionLoading === showDeleteConfirm ? (
+                  <span className="flex items-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </span>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

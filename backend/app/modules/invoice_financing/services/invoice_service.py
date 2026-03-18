@@ -23,6 +23,15 @@ from app.common.helpers import generate_random_string
 from app.core.security.audit_logger import audit_logger, AuditAction
 
 
+def _strip_tz(dt: Optional[datetime]) -> Optional[datetime]:
+    """Strip timezone info from datetime to match database column type."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+
 class InvoiceFinancingService:
     """Service for Invoice Financing operations."""
 
@@ -42,6 +51,17 @@ class InvoiceFinancingService:
         **kwargs,
     ) -> InvoiceFinancing:
         """Create a new Invoice Financing."""
+        # Strip timezone from date fields to match database columns
+        date_fields = [
+            "invoice_date",
+            "due_date",
+            "financing_start_date",
+            "financing_end_date",
+        ]
+        for field in date_fields:
+            if field in kwargs and kwargs[field]:
+                kwargs[field] = _strip_tz(kwargs[field])
+
         invoice_number = await self.generate_invoice_number()
 
         invoice = InvoiceFinancing(
@@ -174,6 +194,216 @@ class InvoiceFinancingService:
             invoice.invoice_status = InvoiceStatus.PAID
 
         await db.flush()
+
+        return invoice
+
+    async def update_invoice(
+        self,
+        db: AsyncSession,
+        invoice_id: int,
+        invoice_data: dict,
+        user_id: int,
+    ) -> InvoiceFinancing:
+        """Update an invoice."""
+        invoice = await self.get_invoice_by_id(db, invoice_id)
+
+        if invoice.invoice_status != InvoiceStatus.DRAFT:
+            raise BusinessRuleViolationException("Only draft invoices can be updated")
+
+        # Update allowed fields
+        allowed_fields = [
+            "invoice_date",
+            "due_date",
+            "seller_name",
+            "seller_address",
+            "buyer_name",
+            "buyer_address",
+            "currency",
+            "invoice_amount",
+            "internal_reference",
+        ]
+        for field in allowed_fields:
+            if field in invoice_data and invoice_data[field] is not None:
+                setattr(invoice, field, invoice_data[field])
+
+        await db.flush()
+        audit_logger.log_audit(
+            AuditAction.UPDATE,
+            user_id,
+            f"Invoice {invoice_id} updated",
+            {"invoice_id": invoice_id, "fields": list(invoice_data.keys())},
+        )
+
+        return invoice
+
+    async def submit_for_approval(
+        self,
+        db: AsyncSession,
+        invoice_id: int,
+        user_id: int,
+    ) -> InvoiceFinancing:
+        """Submit invoice for approval."""
+        invoice = await self.get_invoice_by_id(db, invoice_id)
+
+        if invoice.invoice_status != InvoiceStatus.DRAFT:
+            raise BusinessRuleViolationException("Only draft invoices can be submitted")
+
+        invoice.invoice_status = InvoiceStatus.SUBMITTED
+
+        await db.flush()
+        audit_logger.log_audit(
+            AuditAction.UPDATE,
+            user_id,
+            f"Invoice {invoice_id} submitted for approval",
+            {"invoice_id": invoice_id},
+        )
+
+        return invoice
+
+    async def approve_invoice(
+        self,
+        db: AsyncSession,
+        invoice_id: int,
+        user_id: int,
+        remarks: Optional[str] = None,
+    ) -> InvoiceFinancing:
+        """Approve invoice for financing."""
+        invoice = await self.get_invoice_by_id(db, invoice_id)
+
+        if invoice.invoice_status != InvoiceStatus.SUBMITTED:
+            raise BusinessRuleViolationException(
+                "Only submitted invoices can be approved"
+            )
+
+        invoice.invoice_status = InvoiceStatus.APPROVED
+
+        await db.flush()
+        audit_logger.log_audit(
+            AuditAction.UPDATE,
+            user_id,
+            f"Invoice {invoice_id} approved",
+            {"invoice_id": invoice_id, "remarks": remarks},
+        )
+
+        return invoice
+
+    async def reject_invoice(
+        self,
+        db: AsyncSession,
+        invoice_id: int,
+        user_id: int,
+        reason: str,
+    ) -> InvoiceFinancing:
+        """Reject invoice."""
+        invoice = await self.get_invoice_by_id(db, invoice_id)
+
+        if invoice.invoice_status not in [InvoiceStatus.SUBMITTED, InvoiceStatus.DRAFT]:
+            raise BusinessRuleViolationException(
+                "Only submitted or draft invoices can be rejected"
+            )
+
+        invoice.invoice_status = InvoiceStatus.REJECTED
+
+        await db.flush()
+        audit_logger.log_audit(
+            AuditAction.UPDATE,
+            user_id,
+            f"Invoice {invoice_id} rejected",
+            {"invoice_id": invoice_id, "reason": reason},
+        )
+
+        return invoice
+
+    async def disburse_invoice(
+        self,
+        db: AsyncSession,
+        invoice_id: int,
+        user_id: int,
+    ) -> InvoiceFinancing:
+        """Disburse funds for the invoice."""
+        invoice = await self.get_invoice_by_id(db, invoice_id)
+
+        if invoice.invoice_status != InvoiceStatus.APPROVED:
+            raise BusinessRuleViolationException(
+                "Only approved invoices can be disbursed"
+            )
+
+        invoice.financing_status = FinancingStatus.FINANCED
+        invoice.financing_start_date = datetime.utcnow()
+        invoice.outstanding_amount = invoice.invoice_amount
+
+        await db.flush()
+        audit_logger.log_audit(
+            AuditAction.UPDATE,
+            user_id,
+            f"Invoice {invoice_id} disbursed",
+            {"invoice_id": invoice_id, "amount": str(invoice.invoice_amount)},
+        )
+
+        return invoice
+
+    async def settle_invoice(
+        self,
+        db: AsyncSession,
+        invoice_id: int,
+        settlement_amount: float,
+        user_id: int,
+    ) -> InvoiceFinancing:
+        """Settle the invoice."""
+        invoice = await self.get_invoice_by_id(db, invoice_id)
+
+        if invoice.financing_status != FinancingStatus.FINANCED:
+            raise BusinessRuleViolationException(
+                "Only financed invoices can be settled"
+            )
+
+        invoice.repaid_amount = (invoice.repaid_amount or Decimal(0)) + Decimal(
+            str(settlement_amount)
+        )
+        invoice.outstanding_amount = (
+            invoice.outstanding_amount or Decimal(0)
+        ) - Decimal(str(settlement_amount))
+
+        if invoice.outstanding_amount <= 0:
+            invoice.financing_status = FinancingStatus.REPAID
+            invoice.invoice_status = InvoiceStatus.PAID
+            invoice.payment_date = datetime.utcnow()
+            invoice.payment_amount = Decimal(str(settlement_amount))
+
+        await db.flush()
+        audit_logger.log_audit(
+            AuditAction.UPDATE,
+            user_id,
+            f"Invoice {invoice_id} settled",
+            {"invoice_id": invoice_id, "amount": str(settlement_amount)},
+        )
+
+        return invoice
+
+    async def cancel_invoice(
+        self,
+        db: AsyncSession,
+        invoice_id: int,
+        user_id: int,
+        reason: str,
+    ) -> InvoiceFinancing:
+        """Cancel an invoice."""
+        invoice = await self.get_invoice_by_id(db, invoice_id)
+
+        if invoice.invoice_status not in [InvoiceStatus.DRAFT, InvoiceStatus.SUBMITTED]:
+            raise BusinessRuleViolationException(
+                "Only draft or submitted invoices can be cancelled"
+            )
+
+        invoice.invoice_status = InvoiceStatus.CANCELLED
+
+        await db.flush()
+        audit_logger.log_audit(
+            AuditAction.UPDATE,
+            user_id,
+            f"Invoice {invoice_id} cancelled",
+            {"invoice_id": invoice_id, "reason": reason},
+        )
 
         return invoice
 

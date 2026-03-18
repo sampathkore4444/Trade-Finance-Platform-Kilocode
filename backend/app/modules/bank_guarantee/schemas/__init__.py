@@ -12,8 +12,9 @@ from app.modules.bank_guarantee.schemas.guarantee import (
     BankGuaranteeRelease,
     BankGuaranteeResponse,
     GuaranteeListResponse,
-    GuaranteeTypeEnum,
-    GuaranteeStatusEnum,
+    GuaranteeType,
+    GuaranteeStatus,
+    GuaranteeState,
 )
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "BankGuaranteeRelease",
     "BankGuaranteeResponse",
     "GuaranteeListResponse",
-    "GuaranteeTypeEnum",
-    "GuaranteeStatusEnum",
+    "GuaranteeType",
+    "GuaranteeStatus",
+    "GuaranteeState",
 ]
