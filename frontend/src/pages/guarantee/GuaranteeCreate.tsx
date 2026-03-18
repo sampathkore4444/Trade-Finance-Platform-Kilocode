@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
@@ -120,6 +120,8 @@ const STEPS = [
 ]
 
 export default function GuaranteeCreate() {
+  const { id } = useParams<{ id: string }>()
+  const isEditMode = Boolean(id)
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<GuaranteeFormData>(initialFormData)
@@ -127,6 +129,50 @@ export default function GuaranteeCreate() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Fetch existing guarantee data when in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      fetchGuarantee(id)
+    }
+  }, [id, isEditMode])
+
+  const fetchGuarantee = async (guaranteeId: string) => {
+    setIsLoading(true)
+    try {
+      const response = await api.get(`/guarantee/${guaranteeId}`)
+      const guarantee = response.data
+      setFormData({
+        guarantee_type: guarantee.guarantee_type || 'performance_bond',
+        applicant_name: guarantee.applicant_name || '',
+        applicant_address: guarantee.applicant_address || '',
+        applicant_country: guarantee.applicant_country || '',
+        beneficiary_name: guarantee.beneficiary_name || '',
+        beneficiary_address: guarantee.beneficiary_address || '',
+        beneficiary_country: guarantee.beneficiary_country || '',
+        issuing_bank_name: guarantee.issuing_bank_name || '',
+        issuing_bank_bic: guarantee.issuing_bank_bic || '',
+        issuing_bank_address: guarantee.issuing_bank_address || '',
+        currency: guarantee.currency || 'USD',
+        amount: guarantee.amount?.toString() || '',
+        issue_date: guarantee.issue_date || '',
+        expiry_date: guarantee.expiry_date || '',
+        expiry_place: guarantee.expiry_place || '',
+        guarantee_amount_percent: guarantee.guarantee_amount_percent?.toString() || '100',
+        description: guarantee.description || '',
+        underlying_contract_ref: guarantee.underlying_contract_ref || '',
+        claim_conditions: guarantee.claim_conditions || '',
+        internal_reference: guarantee.internal_reference || '',
+        external_reference: guarantee.external_reference || '',
+      })
+    } catch (err: any) {
+      console.error('Error fetching guarantee:', err)
+      setSubmitError(err.response?.data?.detail || 'Failed to load guarantee data')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const updateField = (field: keyof GuaranteeFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -213,7 +259,14 @@ export default function GuaranteeCreate() {
         expiry_date: formData.expiry_date ? new Date(formData.expiry_date).toISOString() : null,
       }
 
-      const response = await api.post('/guarantee/', payload)
+      let response
+      if (isEditMode && id) {
+        // Update existing guarantee
+        response = await api.put(`/guarantee/${id}`, payload)
+      } else {
+        // Create new guarantee
+        response = await api.post('/guarantee/', payload)
+      }
       
       if (response.data && response.data.id) {
         setSubmitSuccess(true)
@@ -222,9 +275,9 @@ export default function GuaranteeCreate() {
         }, 2000)
       }
     } catch (error: any) {
-      console.error('Guarantee Creation Error:', error)
+      console.error(isEditMode ? 'Guarantee Update Error:' : 'Guarantee Creation Error:', error)
       // Handle FastAPI validation errors which can be an array of error objects
-      let errorMessage = 'Failed to create Bank Guarantee. Please try again.'
+      let errorMessage = isEditMode ? 'Failed to update Bank Guarantee. Please try again.' : 'Failed to create Bank Guarantee. Please try again.'
       const detail = error.response?.data?.detail
       if (detail) {
         if (typeof detail === 'string') {
@@ -799,8 +852,15 @@ export default function GuaranteeCreate() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+          <span className="ml-3 text-secondary-500">Loading guarantee data...</span>
+        </div>
+      ) : (
+        <>
+        {/* Header */}
+        <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-secondary-900">Create Bank Guarantee</h1>
           <p className="text-sm text-secondary-500 mt-1">
@@ -869,6 +929,8 @@ export default function GuaranteeCreate() {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }

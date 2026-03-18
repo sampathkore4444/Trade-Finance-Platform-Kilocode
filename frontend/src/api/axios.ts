@@ -52,6 +52,14 @@ api.interceptors.response.use(
       }
     }
 
+    // If retry still fails with 401, don't logout - user just doesn't have permission
+    // Create a custom error to avoid triggering logout in components
+    if (error.response?.status === 401 && originalRequest._retry) {
+      const customError = new Error('Unauthorized - insufficient permissions') as any
+      customError.response = error.response
+      return Promise.reject(customError)
+    }
+
     return Promise.reject(error)
   }
 )

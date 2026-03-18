@@ -94,7 +94,6 @@ export default function CollectionList() {
   // Action states
   const [actionLoading, setActionLoading] = useState<number | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
-  const [showActionsMenu, setShowActionsMenu] = useState<number | null>(null)
 
   useEffect(() => {
     fetchCollections()

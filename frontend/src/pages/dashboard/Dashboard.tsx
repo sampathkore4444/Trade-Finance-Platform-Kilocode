@@ -54,8 +54,8 @@ export default function Dashboard() {
         api.get('/lc/?page_size=100'),
         api.get('/guarantee/?page_size=100'),
         api.get('/loan/loans/?page_size=100'),
-        api.get('/collection/?page_size=100'),
-        api.get('/invoices/?page_size=100'),
+        api.get('/collection/collections/?page_size=100'),
+        api.get('/invoice/invoices/?page_size=100'),
       ])
 
       // Calculate stats from responses

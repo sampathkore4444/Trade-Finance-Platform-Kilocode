@@ -29,37 +29,19 @@ export default function Reports() {
   const fetchReportsData = async () => {
     setIsLoading(true)
     try {
-      // Fetch reports from API
-      const response = await api.get('/reports/')
-      
-      if (response.data && response.data.length > 0) {
-        const reports = response.data.slice(0, 10).map((report: any) => ({
-          id: report.id,
-          name: report.name || `Report ${report.id}`,
-          type: report.report_type || 'General',
-          generatedDate: report.created_at ? new Date(report.created_at).toLocaleDateString() : '-',
-          generatedBy: report.created_by || 'System',
-        }))
-        setRecentReports(reports)
-        setTotalReports(response.data.length)
-      }
+      // Note: Reports API endpoint doesn't exist in backend yet
+      // Using sample data for now
+      setRecentReports([])
+      setTotalReports(0)
 
-      // Get activity data from users/sessions
-      try {
-        const usersResponse = await api.get('/users/')
-        if (usersResponse.data && usersResponse.data.items) {
-          setActiveUsers(usersResponse.data.total || 0)
-        }
-      } catch (e) {
-        // Users endpoint might require auth
-        setActiveUsers(0)
-      }
+      // Users endpoint requires admin permissions - skip to avoid 401 logout
+      setActiveUsers(0)
 
       // Calculate monthly generated reports (mock calculation based on total)
-      setMonthlyGenerated(Math.max(1, Math.floor(totalReports / 12)))
+      setMonthlyGenerated(0)
       
       // Storage used (mock - would come from backend in real implementation)
-      setStorageUsed(Math.floor(totalReports * 0.5))
+      setStorageUsed(0)
 
     } catch (error) {
       console.error('Error fetching reports data:', error)

@@ -68,6 +68,7 @@ function App() {
         <Route path="guarantee">
           <Route index element={<GuaranteeList />} />
           <Route path="new" element={<GuaranteeCreate />} />
+          <Route path=":id" element={<GuaranteeCreate />} />
         </Route>
         
         {/* Documentary Collection Routes */}

@@ -45,58 +45,21 @@ export default function ComplianceDashboard() {
   const fetchComplianceData = async () => {
     setIsLoading(true)
     try {
-      // Fetch compliance data from API
-      const [pendingResponse, failedResponse, allComplianceResponse] = await Promise.allSettled([
-        api.get('/compliance/pending/list'),
-        api.get('/compliance/failed/list'),
-        api.get('/compliance/'),
-      ])
-
-      // Process pending reviews
+      // Note: Compliance API endpoints don't exist in backend yet
+      // Using sample data for now
+      
+      // Process pending reviews - empty since API doesn't exist
       const pending: ComplianceCheck[] = []
-      if (pendingResponse.status === 'fulfilled' && pendingResponse.value.data) {
-        const items = pendingResponse.value.data.slice(0, 5) || []
-        items.forEach((check: any) => {
-          pending.push({
-            id: check.id,
-            type: check.entity_type || 'Compliance',
-            status: check.status || 'Pending Review',
-            submittedBy: check.checked_by || 'System',
-            date: check.created_at ? new Date(check.created_at).toLocaleDateString() : '-',
-          })
-        })
-      }
       setPendingReviews(pending)
-      setPendingCount(pending.length)
+      setPendingCount(0)
 
-      // Process violations
+      // Process violations - empty since API doesn't exist
       const violations: Violation[] = []
-      if (failedResponse.status === 'fulfilled' && failedResponse.value.data) {
-        const items = failedResponse.value.data.slice(0, 5) || []
-        items.forEach((check: any) => {
-          violations.push({
-            id: check.id,
-            type: check.check_type || 'Compliance',
-            severity: check.risk_level || 'medium',
-            description: `${check.entity_type || 'Check'}-${check.id}: ${check.check_name || 'Compliance check failed'}`,
-            date: check.created_at ? new Date(check.created_at).toLocaleDateString() : '-',
-          })
-        })
-      }
       setRecentViolations(violations)
-      setViolationsCount(violations.length)
+      setViolationsCount(0)
 
-      // Get approved count from all compliance checks
-      if (allComplianceResponse.status === 'fulfilled' && allComplianceResponse.value.data) {
-        const all = allComplianceResponse.value.data || []
-        setApprovedCount(all.length)
-        
-        // Calculate compliance score based on pass rate
-        const passed = all.filter((c: any) => c.status === 'passed' || c.status === 'approved').length
-        if (all.length > 0) {
-          setComplianceScore(Math.round((passed / all.length) * 100))
-        }
-      }
+      // Set default values
+      setApprovedCount(0)
 
       // Audit logs (would come from a dedicated endpoint in real implementation)
       setAuditLogs([

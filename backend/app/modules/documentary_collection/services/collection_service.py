@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_
-from sqlalchemy.orm import selectinload
 
 from app.modules.documentary_collection.models import DocumentaryCollection
 from app.modules.documentary_collection.schemas import (
@@ -79,9 +78,9 @@ class DocumentaryCollectionService:
         Get a documentary collection by ID
         """
         result = await self.db.execute(
-            select(DocumentaryCollection)
-            .where(DocumentaryCollection.id == collection_id)
-            .options(selectinload(DocumentaryCollection.documents))
+            select(DocumentaryCollection).where(
+                DocumentaryCollection.id == collection_id
+            )
         )
         return result.scalar_one_or_none()
 

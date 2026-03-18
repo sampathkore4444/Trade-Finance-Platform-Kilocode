@@ -8,7 +8,6 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
-  MoreVertical,
   Eye,
   Edit,
   Shield,
@@ -112,7 +111,6 @@ export default function GuaranteeList() {
   // Action states
   const [actionLoading, setActionLoading] = useState<number | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
-  const [showActionsMenu, setShowActionsMenu] = useState<number | null>(null)
 
   useEffect(() => {
     fetchGuarantees()
@@ -176,8 +174,12 @@ export default function GuaranteeList() {
   }
 
   // Action handlers
+  const handleView = (guaranteeId: number) => {
+    navigate(`/guarantee/${guaranteeId}`)
+  }
+
   const handleEdit = (guaranteeId: number) => {
-    navigate(`/guarantee/${guaranteeId}/edit`)
+    navigate(`/guarantee/${guaranteeId}`)
   }
 
   const handleDelete = async (guaranteeId: number) => {
@@ -237,22 +239,30 @@ export default function GuaranteeList() {
     const actions = []
     const currentStatus = guarantee.status
 
+    // Edit - for draft
     if (currentStatus === 'draft') {
       actions.push({ key: 'edit', label: 'Edit', icon: Edit, handler: () => handleEdit(guarantee.id) })
     }
 
+    // Submit - for draft
     if (currentStatus === 'draft') {
       actions.push({ key: 'submit', label: 'Submit', icon: Send, handler: () => handleSubmit(guarantee.id) })
     }
 
+    // View - available for all
+    actions.push({ key: 'view', label: 'View', icon: Eye, handler: () => handleView(guarantee.id) })
+
+    // Approve - for submitted
     if (currentStatus === 'submitted') {
       actions.push({ key: 'approve', label: 'Approve', icon: Check, handler: () => handleApprove(guarantee.id) })
     }
 
+    // Reject - for submitted
     if (currentStatus === 'submitted') {
       actions.push({ key: 'reject', label: 'Reject', icon: X, handler: () => handleReject(guarantee.id) })
     }
 
+    // Delete - for draft
     if (currentStatus === 'draft') {
       actions.push({ key: 'delete', label: 'Delete', icon: Trash2, handler: () => setShowDeleteConfirm(guarantee.id) })
     }
@@ -473,52 +483,17 @@ export default function GuaranteeList() {
                           {formatDate(guarantee.created_at)}
                         </td>
                         <td>
-                          <div className="flex items-center space-x-2">
-                            <Link
-                              to={`/guarantee/${guarantee.id}`}
-                              className="p-1 text-secondary-400 hover:text-primary-600"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Link>
-                            <button
-                              onClick={() => handleEdit(guarantee.id)}
-                              className="p-1 text-secondary-400 hover:text-primary-600"
-                              title="Edit"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <div className="relative">
+                          <div className="flex items-center space-x-1">
+                            {getAvailableActions(guarantee).slice(0, 6).map((action) => (
                               <button
-                                onClick={() => setShowActionsMenu(showActionsMenu === guarantee.id ? null : guarantee.id)}
+                                key={action.key}
+                                onClick={action.handler}
                                 className="p-1 text-secondary-400 hover:text-primary-600"
-                                title="More Actions"
+                                title={action.label}
                               >
-                                <MoreVertical className="w-4 h-4" />
+                                <action.icon className="w-4 h-4" />
                               </button>
-                              {showActionsMenu === guarantee.id && (
-                                <div className="absolute right-0 mt-1 w-40 bg-white border border-secondary-200 rounded-md shadow-lg z-10">
-                                  {getAvailableActions(guarantee).map((action) => (
-                                    <button
-                                      key={action.key}
-                                      onClick={() => {
-                                        action.handler()
-                                        setShowActionsMenu(null)
-                                      }}
-                                      disabled={actionLoading === guarantee.id}
-                                      className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
-                                    >
-                                      {actionLoading === guarantee.id && action.key !== 'edit' ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <action.icon className="w-4 h-4" />
-                                      )}
-                                      <span>{action.label}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                            ))}
                           </div>
                         </td>
                       </tr>
