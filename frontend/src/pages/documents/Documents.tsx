@@ -14,19 +14,20 @@ import {
 } from 'lucide-react'
 
 interface Document {
-  id: string
-  original_filename: string
+  id: number
+  file_name: string
+  stored_filename?: string
   document_type: string | null
   entity_type: string | null
-  entity_id: string | null
+  entity_id: number | null
   status: string
   mime_type: string
   file_size: number
   created_at: string
   uploaded_by: string | null
-  verified_at: string | null
-  verified_by: string | null
-  rejection_reason: string | null
+  verified_at?: string | null
+  verified_by?: string | null
+  rejection_reason?: string | null
 }
 
 interface LC {
@@ -200,7 +201,7 @@ export default function Documents() {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', doc.original_filename)
+      link.setAttribute('download', doc.file_name)
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -209,7 +210,7 @@ export default function Documents() {
     }
   }
 
-  const handleVerify = async (docId: string) => {
+  const handleVerify = async (docId: number) => {
     try {
       await api.post(`/documents/${docId}/verify`)
       fetchDocuments()
@@ -218,7 +219,7 @@ export default function Documents() {
     }
   }
 
-  const handleReject = async (docId: string) => {
+  const handleReject = async (docId: number) => {
     const reason = prompt('Enter rejection reason:')
     if (!reason) return
     
@@ -230,7 +231,7 @@ export default function Documents() {
     }
   }
 
-  const handleDelete = async (docId: string) => {
+  const handleDelete = async (docId: number) => {
     if (!confirm('Are you sure you want to delete this document?')) return
     
     try {
@@ -242,7 +243,7 @@ export default function Documents() {
   }
 
   const filteredDocuments = documents.filter(doc => 
-    doc.original_filename.toLowerCase().includes(searchTerm.toLowerCase())
+    (doc.file_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const formatFileSize = (bytes: number) => {
@@ -378,7 +379,7 @@ export default function Documents() {
                     <td>
                       <div className="flex items-center">
                         <File className="w-5 h-5 text-secondary-400 mr-3" />
-                        <span className="font-medium">{doc.original_filename}</span>
+                        <span className="font-medium">{doc.file_name}</span>
                       </div>
                     </td>
                     <td>
@@ -390,7 +391,7 @@ export default function Documents() {
                       <div>
                         <span className="text-secondary-600">{doc.entity_type || 'N/A'}</span>
                         {doc.entity_id && (
-                          <span className="text-secondary-400 text-sm ml-1">#{doc.entity_id.slice(0, 8)}</span>
+                          <span className="text-secondary-400 text-sm ml-1">#{doc.entity_id}</span>
                         )}
                       </div>
                     </td>
@@ -409,14 +410,14 @@ export default function Documents() {
                         {doc.status === 'pending' && (
                           <>
                             <button
-                              onClick={() => handleVerify(doc.id)}
+                              onClick={() => handleVerify(Number(doc.id))}
                               className="p-2 text-secondary-600 hover:text-green-600 hover:bg-green-50 rounded"
                               title="Verify"
                             >
                               <CheckCircle className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleReject(doc.id)}
+                              onClick={() => handleReject(Number(doc.id))}
                               className="p-2 text-secondary-600 hover:text-red-600 hover:bg-red-50 rounded"
                               title="Reject"
                             >
@@ -425,7 +426,7 @@ export default function Documents() {
                           </>
                         )}
                         <button
-                          onClick={() => handleDelete(doc.id)}
+                          onClick={() => handleDelete(Number(doc.id))}
                           className="p-2 text-secondary-600 hover:text-red-600 hover:bg-red-50 rounded"
                           title="Delete"
                         >
