@@ -19,6 +19,11 @@ from app.modules.documentary_collection.models import (
     CollectionStatus,
 )
 
+# Import event generator
+from app.modules.event_generator.services.event_factory import EventFactory
+from app.modules.event_generator.services.event_repository import EventRepository
+from app.modules.event_generator.services.event_generator import EventGenerator
+
 
 class DocumentaryCollectionService:
     """
@@ -27,6 +32,46 @@ class DocumentaryCollectionService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.event_factory = EventFactory()
+    
+    async def _generate_event(self, event_type: str, collection: DocumentaryCollection, 
+                              user_id: int):
+        """Generate an event for Collection action"""
+        try:
+            event_repo = EventRepository(self.db)
+            event_generator = EventGenerator(
+                db=self.db,
+                event_factory=self.event_factory,
+                event_repository=event_repo,
+                event_publisher=None
+            )
+            
+            collection_data = {
+                "id": str(collection.id),
+                "reference": collection.collection_number,
+                "applicantName": collection.applicant_name,
+                "beneficiaryName": collection.beneficiary_name,
+                "type": collection.collection_type.value if collection.collection_type else None,
+                "currency": collection.currency,
+                "amount": str(collection.amount),
+                "issueDate": collection.issue_date.isoformat() if collection.issue_date else None,
+                "dueDate": collection.due_date.isoformat() if collection.due_date else None
+            }
+            
+            event = event_generator.generate_event(
+                event_type=event_type,
+                payload=collection_data,
+                source_service="collection_service",
+                source_actor="user",
+                source_actor_id=str(user_id),
+                tenant_id=str(collection.organization_id) if hasattr(collection, 'organization_id') else None
+            )
+            
+            return event
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to generate event: {e}")
+            return None
 
     async def create_collection(
         self,
@@ -68,6 +113,9 @@ class DocumentaryCollectionService:
         self.db.add(collection)
         await self.db.commit()
         await self.db.refresh(collection)
+
+        # Generate COLLECTION_CREATED event
+        await self._generate_event("COLLECTION_CREATED", collection, user_id)
 
         return collection
 

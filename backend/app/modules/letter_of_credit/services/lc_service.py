@@ -27,6 +27,12 @@ from app.common.exceptions import (
 from app.common.helpers import generate_random_string
 from app.core.security.audit_logger import audit_logger, AuditAction
 
+# Import event generator
+from app.modules.event_generator.services.event_factory import EventFactory
+from app.modules.event_generator.services.event_repository import EventRepository
+from app.modules.event_generator.services.event_generator import EventGenerator
+from app.modules.event_generator.services.accounting_mapper import AccountingMapper
+
 
 def _strip_tz(dt: Optional[datetime]) -> Optional[datetime]:
     """Strip timezone info from datetime to match database column type"""
@@ -41,6 +47,51 @@ class LCService:
     """
     Service for Letter of Credit operations.
     """
+
+    def __init__(self):
+        self.event_factory = EventFactory()
+        self.accounting_mapper = AccountingMapper()
+    
+    async def _generate_event(self, db: AsyncSession, event_type: str, lc: LetterOfCredit, 
+                              user_id: int, accounting_entries: list = None):
+        """Generate an event for LC action"""
+        try:
+            event_repo = EventRepository(db)
+            event_generator = EventGenerator(
+                db=db,
+                event_factory=self.event_factory,
+                event_repository=event_repo,
+                event_publisher=None  # Events are published after commit
+            )
+            
+            lc_data = {
+                "id": str(lc.id),
+                "reference": lc.lc_number,
+                "applicant_party_id": str(lc.applicant_id) if lc.applicant_id else None,
+                "beneficiary_party_id": str(lc.beneficiary_id) if lc.beneficiary_id else None,
+                "type": lc.lc_type.value if lc.lc_type else None,
+                "currency": lc.currency,
+                "amount": str(lc.amount),
+                "expiry_date": lc.expiry_date.isoformat() if lc.expiry_date else None,
+                "issue_date": lc.issue_date.isoformat() if lc.issue_date else None,
+                "issuing_bank": str(lc.issuing_bank_id) if lc.issuing_bank_id else None
+            }
+            
+            event = event_generator.generate_lc_event(
+                event_type=event_type,
+                lc_data=lc_data,
+                actor="user",
+                actor_id=str(user_id),
+                accounting_entries=accounting_entries,
+                tenant_id=str(lc.organization_id) if hasattr(lc, 'organization_id') else None
+            )
+            
+            return event
+        except Exception as e:
+            # Log but don't fail the main operation
+            import logging
+            logging.getLogger(__name__).error(f"Failed to generate event: {e}")
+            return None
 
     async def generate_lc_number(self) -> str:
         """
@@ -100,6 +151,9 @@ class LCService:
 
         db.add(lc)
         await db.flush()
+
+        # Generate LC_CREATED event
+        await self._generate_event(db, "LC_CREATED", lc, created_by)
 
         # Audit log
         audit_logger.log(
@@ -335,6 +389,9 @@ class LCService:
 
         await db.flush()
 
+        # Generate LC_APPROVED event
+        await self._generate_event(db, "LC_APPROVED", lc, user_id)
+
         audit_logger.log(
             action=AuditAction.LC_APPROVED,
             user_id=user_id,
@@ -417,6 +474,30 @@ class LCService:
         lc.issue_date = datetime.utcnow()
 
         await db.flush()
+
+        # Generate LC_ISSUED event with accounting entries
+        # Create a mock event for the mapper
+        class MockEvent:
+            def __init__(self, event_type, payload):
+                self.event_type = event_type
+                self.payload = payload
+        
+        lc_data = {
+            "id": str(lc.id),
+            "reference": lc.lc_number,
+            "applicant_party_id": str(lc.applicant_id) if lc.applicant_id else None,
+            "beneficiary_party_id": str(lc.beneficiary_id) if lc.beneficiary_id else None,
+            "type": lc.lc_type.value if lc.lc_type else None,
+            "currency": lc.currency,
+            "amount": str(lc.amount),
+            "expiry_date": lc.expiry_date.isoformat() if lc.expiry_date else None,
+            "issue_date": lc.issue_date.isoformat() if lc.issue_date else None,
+            "issuing_bank": str(lc.issuing_bank_id) if lc.issuing_bank_id else None
+        }
+        mock_event = MockEvent("LC_ISSUED", lc_data)
+        accounting_entries = self.accounting_mapper.map_to_entries(mock_event)
+        
+        await self._generate_event(db, "LC_ISSUED", lc, user_id, accounting_entries)
 
         return lc
 

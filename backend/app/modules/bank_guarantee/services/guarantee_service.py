@@ -24,11 +24,61 @@ from app.common.exceptions import (
 from app.common.helpers import generate_random_string
 from app.core.security.audit_logger import audit_logger, AuditAction
 
+# Import event generator
+from app.modules.event_generator.services.event_factory import EventFactory
+from app.modules.event_generator.services.event_repository import EventRepository
+from app.modules.event_generator.services.event_generator import EventGenerator
+from app.modules.event_generator.services.accounting_mapper import AccountingMapper
+
 
 class GuaranteeService:
     """
     Service for Bank Guarantee operations.
     """
+
+    def __init__(self):
+        self.event_factory = EventFactory()
+        self.accounting_mapper = AccountingMapper()
+    
+    async def _generate_event(self, db: AsyncSession, event_type: str, guarantee: BankGuarantee, 
+                              user_id: int, accounting_entries: list = None):
+        """Generate an event for Guarantee action"""
+        try:
+            event_repo = EventRepository(db)
+            event_generator = EventGenerator(
+                db=db,
+                event_factory=self.event_factory,
+                event_repository=event_repo,
+                event_publisher=None
+            )
+            
+            guarantee_data = {
+                "id": str(guarantee.id),
+                "reference": guarantee.guarantee_number,
+                "applicant_party_id": str(guarantee.applicant_id) if guarantee.applicant_id else None,
+                "beneficiary_party_id": str(guarantee.beneficiary_id) if guarantee.beneficiary_id else None,
+                "type": guarantee.guarantee_type.value if guarantee.guarantee_type else None,
+                "currency": guarantee.currency,
+                "amount": str(guarantee.amount),
+                "expiry_date": guarantee.expiry_date.isoformat() if guarantee.expiry_date else None,
+                "issue_date": guarantee.issue_date.isoformat() if guarantee.issue_date else None,
+                "issuing_bank": str(guarantee.issuing_bank_id) if guarantee.issuing_bank_id else None
+            }
+            
+            event = event_generator.generate_guarantee_event(
+                event_type=event_type,
+                guarantee_data=guarantee_data,
+                actor="user",
+                actor_id=str(user_id),
+                accounting_entries=accounting_entries,
+                tenant_id=str(guarantee.organization_id) if hasattr(guarantee, 'organization_id') else None
+            )
+            
+            return event
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to generate event: {e}")
+            return None
 
     async def generate_guarantee_number(self) -> str:
         """
@@ -82,6 +132,9 @@ class GuaranteeService:
 
         db.add(guarantee)
         await db.flush()
+
+        # Generate GUARANTEE_CREATED event
+        await self._generate_event(db, "GUARANTEE_CREATED", guarantee, created_by)
 
         audit_logger.log(
             action=AuditAction.GUARANTEE_CREATED,
@@ -407,6 +460,29 @@ class GuaranteeService:
 
         await db.flush()
 
+        # Generate GUARANTEE_ISSUED event with accounting
+        class MockEvent:
+            def __init__(self, event_type, payload):
+                self.event_type = event_type
+                self.payload = payload
+        
+        guarantee_data = {
+            "id": str(guarantee.id),
+            "reference": guarantee.guarantee_number,
+            "applicant_party_id": str(guarantee.applicant_id) if guarantee.applicant_id else None,
+            "beneficiary_party_id": str(guarantee.beneficiary_id) if guarantee.beneficiary_id else None,
+            "type": guarantee.guarantee_type.value if guarantee.guarantee_type else None,
+            "currency": guarantee.currency,
+            "amount": str(guarantee.amount),
+            "expiry_date": guarantee.expiry_date.isoformat() if guarantee.expiry_date else None,
+            "issue_date": guarantee.issue_date.isoformat() if guarantee.issue_date else None,
+            "issuing_bank": str(guarantee.issuing_bank_id) if guarantee.issuing_bank_id else None
+        }
+        mock_event = MockEvent("GUARANTEE_ISSUED", guarantee_data)
+        accounting_entries = self.accounting_mapper.map_to_entries(mock_event)
+        
+        await self._generate_event(db, "GUARANTEE_ISSUED", guarantee, user_id, accounting_entries)
+
         return guarantee
 
     async def claim_guarantee(
@@ -447,6 +523,29 @@ class GuaranteeService:
         guarantee.status = GuaranteeStatus.CLAIMED
 
         await db.flush()
+
+        # Generate GUARANTEE_CLAIMED event with accounting
+        class MockEvent:
+            def __init__(self, event_type, payload):
+                self.event_type = event_type
+                self.payload = payload
+        
+        guarantee_data = {
+            "id": str(guarantee.id),
+            "reference": guarantee.guarantee_number,
+            "applicant_party_id": str(guarantee.applicant_id) if guarantee.applicant_id else None,
+            "beneficiary_party_id": str(guarantee.beneficiary_id) if guarantee.beneficiary_id else None,
+            "type": guarantee.guarantee_type.value if guarantee.guarantee_type else None,
+            "currency": guarantee.currency,
+            "amount": str(claim_amount),
+            "expiry_date": guarantee.expiry_date.isoformat() if guarantee.expiry_date else None,
+            "issue_date": guarantee.issue_date.isoformat() if guarantee.issue_date else None,
+            "issuing_bank": str(guarantee.issuing_bank_id) if guarantee.issuing_bank_id else None
+        }
+        mock_event = MockEvent("GUARANTEE_CLAIMED", guarantee_data)
+        accounting_entries = self.accounting_mapper.map_to_entries(mock_event)
+        
+        await self._generate_event(db, "GUARANTEE_CLAIMED", guarantee, user_id, accounting_entries)
 
         audit_logger.log(
             action=AuditAction.GUARANTEE_CLAIMED,
@@ -499,6 +598,29 @@ class GuaranteeService:
         guarantee.status = GuaranteeStatus.RELEASED
 
         await db.flush()
+
+        # Generate GUARANTEE_RELEASED event with accounting
+        class MockEvent:
+            def __init__(self, event_type, payload):
+                self.event_type = event_type
+                self.payload = payload
+        
+        guarantee_data = {
+            "id": str(guarantee.id),
+            "reference": guarantee.guarantee_number,
+            "applicant_party_id": str(guarantee.applicant_id) if guarantee.applicant_id else None,
+            "beneficiary_party_id": str(guarantee.beneficiary_id) if guarantee.beneficiary_id else None,
+            "type": guarantee.guarantee_type.value if guarantee.guarantee_type else None,
+            "currency": guarantee.currency,
+            "amount": str(release_amount) if release_amount else str(guarantee.amount),
+            "expiry_date": guarantee.expiry_date.isoformat() if guarantee.expiry_date else None,
+            "issue_date": guarantee.issue_date.isoformat() if guarantee.issue_date else None,
+            "issuing_bank": str(guarantee.issuing_bank_id) if guarantee.issuing_bank_id else None
+        }
+        mock_event = MockEvent("GUARANTEE_RELEASED", guarantee_data)
+        accounting_entries = self.accounting_mapper.map_to_entries(mock_event)
+        
+        await self._generate_event(db, "GUARANTEE_RELEASED", guarantee, user_id, accounting_entries)
 
         audit_logger.log(
             action=AuditAction.GUARANTEE_RELEASED,
