@@ -8,7 +8,6 @@ import {
   CheckCircle, 
   XCircle, 
   Search, 
-  Filter,
   Loader2,
   File,
   X
@@ -28,6 +27,31 @@ interface Document {
   verified_at: string | null
   verified_by: string | null
   rejection_reason: string | null
+}
+
+interface LC {
+  id: string
+  lc_number: string
+}
+
+interface Guarantee {
+  id: string
+  guarantee_number: string
+}
+
+interface Collection {
+  id: string
+  collection_number: string
+}
+
+interface Loan {
+  id: string
+  loan_number: string
+}
+
+interface Invoice {
+  id: string
+  invoice_number: string
 }
 
 const documentTypes = [
@@ -72,6 +96,8 @@ export default function Documents() {
   const [uploadType, setUploadType] = useState('')
   const [uploadEntityType, setUploadEntityType] = useState('')
   const [uploadEntityId, setUploadEntityId] = useState('')
+  
+  // Entity options for dropdown
   const [lcs, setLcs] = useState<LC[]>([])
   const [guarantees, setGuarantees] = useState<Guarantee[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
@@ -85,7 +111,7 @@ export default function Documents() {
 
   const fetchEntities = async () => {
     try {
-      const [lcRes, guaranteeRes, collectionRes, loanRes, invoiceRes] = await Promise.allSettled([
+      const results = await Promise.allSettled([
         api.get('/letter-of-credit/'),
         api.get('/bank-guarantee/'),
         api.get('/collections/'),
@@ -93,11 +119,11 @@ export default function Documents() {
         api.get('/invoices/')
       ])
       
-      if (lcRes.status === 'fulfilled') setLcs(lcRes.value.data.results || lcRes.value.data || [])
-      if (guaranteeRes.status === 'fulfilled') setGuarantees(guaranteeRes.value.data.results || guaranteeRes.value.data || [])
-      if (collectionRes.status === 'fulfilled') setCollections(collectionRes.value.data.results || collectionRes.value.data || [])
-      if (loanRes.status === 'fulfilled') setLoans(loanRes.value.data.results || loanRes.value.data || [])
-      if (invoiceRes.status === 'fulfilled') setInvoices(invoiceRes.value.data.results || invoiceRes.value.data || [])
+      if (results[0].status === 'fulfilled') setLcs(results[0].value.data.results || results[0].value.data || [])
+      if (results[1].status === 'fulfilled') setGuarantees(results[1].value.data.results || results[1].value.data || [])
+      if (results[2].status === 'fulfilled') setCollections(results[2].value.data.results || results[2].value.data || [])
+      if (results[3].status === 'fulfilled') setLoans(results[3].value.data.results || results[3].value.data || [])
+      if (results[4].status === 'fulfilled') setInvoices(results[4].value.data.results || results[4].value.data || [])
     } catch (error) {
       console.error('Error fetching entities:', error)
     }
@@ -339,7 +365,7 @@ export default function Documents() {
                 <tr>
                   <th>File Name</th>
                   <th>Type</th>
-                  <th>Entity</th>
+                  <th>Linked Entity</th>
                   <th>Size</th>
                   <th>Status</th>
                   <th>Uploaded</th>
@@ -461,7 +487,7 @@ export default function Documents() {
               {/* Entity Type */}
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-1">
-                  Link to Entity (Optional)
+                  Link to Trade Finance Entity (Optional)
                 </label>
                 <select
                   value={uploadEntityType}
@@ -477,22 +503,27 @@ export default function Documents() {
                 </select>
               </div>
 
-              {/* Entity Reference */}
+              {/* Entity Reference - Dropdown with actual records */}
               {uploadEntityType && (
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-1">
-                    Select {uploadEntityType} Reference
+                    Select {uploadEntityType} Reference Number
                   </label>
                   <select
                     value={uploadEntityId}
                     onChange={(e) => setUploadEntityId(e.target.value)}
                     className="input"
                   >
-                    <option value="">-- Select --</option>
+                    <option value="">-- Select Reference --</option>
                     {getEntityOptions().map(opt => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
+                  {getEntityOptions().length === 0 && (
+                    <p className="text-xs text-secondary-500 mt-1">
+                      No {uploadEntityType.toLowerCase()} records found
+                    </p>
+                  )}
                 </div>
               )}
             </div>
