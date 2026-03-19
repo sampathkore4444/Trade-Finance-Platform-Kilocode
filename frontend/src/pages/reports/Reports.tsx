@@ -236,7 +236,28 @@ export default function Reports() {
                       <td>
                         <button 
                           className="text-primary-600 hover:text-primary-500"
-                          onClick={() => alert('Download functionality requires PDF generation to be implemented.')}
+                          onClick={async () => {
+                            try {
+                              const response = await api.get(`/reports/${report.id}/download`, {
+                                responseType: 'blob'
+                              })
+                              const url = window.URL.createObjectURL(new Blob([response.data]))
+                              const link = document.createElement('a')
+                              link.href = url
+                              link.setAttribute('download', report.filename || 'report.pdf')
+                              document.body.appendChild(link)
+                              link.click()
+                              link.remove()
+                              window.URL.revokeObjectURL(url)
+                            } catch (error: any) {
+                              console.error('Error downloading report:', error)
+                              if (error.response?.status === 404) {
+                                alert('Report file not found. The report may have been generated before PDF support was added.')
+                              } else {
+                                alert('Error downloading report. Please try again.')
+                              }
+                            }
+                          }}
                         >
                           <Download className="h-4 w-4" />
                         </button>
