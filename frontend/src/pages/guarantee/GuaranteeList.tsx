@@ -441,9 +441,12 @@ export default function GuaranteeList() {
                     return (
                       <tr key={guarantee.id} className="hover:bg-secondary-50">
                         <td>
-                          <span className="font-medium text-primary-600">
+                          <button
+                            onClick={() => handleView(guarantee.id)}
+                            className="font-medium text-primary-600 hover:underline"
+                          >
                             {guarantee.guarantee_number}
-                          </span>
+                          </button>
                         </td>
                         <td>
                           <span className="badge badge-secondary">

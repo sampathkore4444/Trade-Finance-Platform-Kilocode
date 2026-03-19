@@ -4,14 +4,18 @@ import api from '@/api/axios'
 
 interface Report {
   id: number
-  name: string
-  type: string
-  generatedDate: string
-  generatedBy: string
+  report_number: string
+  report_type: string
+  title: string
+  status: string
+  filename: string
+  generated_at: string
+  generated_by: number
 }
 
 export default function Reports() {
   const [isLoading, setIsLoading] = useState(true)
+  const [isGenerating, setIsGenerating] = useState<string | null>(null)
   const [recentReports, setRecentReports] = useState<Report[]>([])
   const [selectedReport, setSelectedReport] = useState('')
   const [dateRange, setDateRange] = useState('last_30_days')
@@ -29,24 +33,69 @@ export default function Reports() {
   const fetchReportsData = async () => {
     setIsLoading(true)
     try {
-      // Note: Reports API endpoint doesn't exist in backend yet
-      // Using sample data for now
-      setRecentReports([])
-      setTotalReports(0)
-
+      // Fetch reports list from backend
+      const response = await api.get('/reports/')
+      setRecentReports(response.data || [])
+      setTotalReports(response.data?.length || 0)
+      
       // Users endpoint requires admin permissions - skip to avoid 401 logout
       setActiveUsers(0)
 
-      // Calculate monthly generated reports (mock calculation based on total)
-      setMonthlyGenerated(0)
+      // Calculate monthly generated reports
+      setMonthlyGenerated(response.data?.length || 0)
       
       // Storage used (mock - would come from backend in real implementation)
       setStorageUsed(0)
 
     } catch (error) {
       console.error('Error fetching reports data:', error)
+      setRecentReports([])
+      setTotalReports(0)
+      setMonthlyGenerated(0)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleGenerateReport = async (reportId: string) => {
+    setIsGenerating(reportId)
+    try {
+      let response
+      const today = new Date()
+      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+      const startDate = thirtyDaysAgo.toISOString().split('T')[0]
+      const endDate = today.toISOString().split('T')[0]
+      
+      switch (reportId) {
+        case 'lc_summary':
+          response = await api.get(`/reports/lc/summary?start_date=${startDate}&end_date=${endDate}`)
+          break
+        case 'guarantee_summary':
+          response = await api.get(`/reports/guarantee/summary?start_date=${startDate}&end_date=${endDate}`)
+          break
+        case 'collection_summary':
+          response = await api.get(`/reports/portfolio/summary?as_of_date=${endDate}`)
+          break
+        case 'loan_performance':
+          response = await api.get(`/reports/loan/summary?start_date=${startDate}&end_date=${endDate}`)
+          break
+        case 'risk_exposure':
+          response = await api.get(`/reports/portfolio/summary?as_of_date=${endDate}`)
+          break
+        case 'compliance':
+          response = await api.get(`/reports/compliance/summary?start_date=${startDate}&end_date=${endDate}`)
+          break
+        default:
+          throw new Error('Unknown report type')
+      }
+      
+      alert(`Report "${reportId}" generated successfully!`)
+      fetchReportsData()
+    } catch (error: any) {
+      console.error('Error generating report:', error)
+      alert(error.response?.data?.detail || `Failed to generate ${reportId} report`)
+    } finally {
+      setIsGenerating(null)
     }
   }
 
@@ -132,10 +181,18 @@ export default function Reports() {
         <div className="card-body">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {reportTypes.map((report) => (
-              <div key={report.id} className="p-4 border border-secondary-200 rounded-lg hover:bg-secondary-50 cursor-pointer transition-colors">
+              <div 
+                key={report.id} 
+                className="p-4 border border-secondary-200 rounded-lg hover:bg-secondary-50 cursor-pointer transition-colors"
+                onClick={() => handleGenerateReport(report.id)}
+              >
                 <div className="flex items-start">
                   <div className="p-2 bg-primary-100 rounded-lg mr-3">
-                    <report.icon className="h-5 w-5 text-primary-600" />
+                    {isGenerating === report.id ? (
+                      <Loader2 className="h-5 w-5 text-primary-600 animate-spin" />
+                    ) : (
+                      <report.icon className="h-5 w-5 text-primary-600" />
+                    )}
                   </div>
                   <div className="flex-1">
                     <h4 className="text-sm font-medium text-secondary-900">{report.name}</h4>
@@ -172,12 +229,15 @@ export default function Reports() {
                 <tbody>
                   {recentReports.map((report) => (
                     <tr key={report.id}>
-                      <td className="font-medium">{report.name}</td>
-                      <td>{report.type}</td>
-                      <td className="text-secondary-500">{report.generatedDate}</td>
-                      <td>{report.generatedBy}</td>
+                      <td className="font-medium">{report.title}</td>
+                      <td>{report.report_type}</td>
+                      <td className="text-secondary-500">{report.generated_at}</td>
+                      <td>{report.generated_by}</td>
                       <td>
-                        <button className="text-primary-600 hover:text-primary-500">
+                        <button 
+                          className="text-primary-600 hover:text-primary-500"
+                          onClick={() => alert('Download functionality requires PDF generation to be implemented.')}
+                        >
                           <Download className="h-4 w-4" />
                         </button>
                       </td>

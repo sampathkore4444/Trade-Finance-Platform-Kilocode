@@ -333,7 +333,14 @@ export default function CollectionList() {
                     const statusConfig = getStatusConfig(c.status)
                     return (
                       <tr key={c.id} className="hover:bg-secondary-50">
-                        <td className="font-medium text-primary-600">{c.collection_number}</td>
+                        <td className="font-medium text-primary-600">
+                          <button
+                            onClick={() => handleView(c.id)}
+                            className="text-primary-600 hover:underline"
+                          >
+                            {c.collection_number}
+                          </button>
+                        </td>
                         <td><span className="badge badge-secondary">{c.collection_type === 'documents_against_acceptance' ? 'D/A' : 'D/P'}</span></td>
                         <td className="max-w-[150px] truncate"><div className="flex items-center"><Building2 className="w-4 h-4 text-secondary-400 mr-2" /><span className="truncate">{c.drawer_name || 'N/A'}</span></div></td>
                         <td className="max-w-[150px] truncate"><div className="flex items-center"><Globe className="w-4 h-4 text-secondary-400 mr-2" /><span className="truncate">{c.drawee_name || 'N/A'}</span></div></td>

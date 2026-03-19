@@ -197,7 +197,14 @@ export default function LoanList() {
                 <tr><td colSpan={8} className="text-center py-12"><Banknote className="w-12 h-12 text-secondary-300 mx-auto mb-4" /><p className="text-secondary-500">No Loans found</p></td></tr>
               ) : loans.map((loan) => (
                 <tr key={loan.id} className="hover:bg-secondary-50">
-                  <td className="font-medium text-primary-600">{loan.loan_number}</td>
+                  <td className="font-medium text-primary-600">
+                    <button
+                      onClick={() => navigate(`/loan/${loan.id}`)}
+                      className="text-primary-600 hover:underline"
+                    >
+                      {loan.loan_number}
+                    </button>
+                  </td>
                   <td><span className="badge badge-secondary">{loan.loan_type}</span></td>
                   <td><div className="flex items-center"><Building2 className="w-4 h-4 text-secondary-400 mr-2" />{loan.borrower_name || 'N/A'}</div></td>
                   <td className="font-medium"><DollarSign className="w-4 h-4 inline mr-1" />{formatAmount(Number(loan.amount), loan.currency)}</td>

@@ -303,7 +303,7 @@ async def cancel_collection(
     """
     collection = await service.cancel_collection(
         collection_id=collection_id,
-        user_id=current_user["user_id"],
+        user_id=current_user.id,
         reason=reason,
     )
     if not collection:

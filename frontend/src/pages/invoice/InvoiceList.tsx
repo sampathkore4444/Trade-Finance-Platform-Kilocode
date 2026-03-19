@@ -227,7 +227,14 @@ export default function InvoiceList() {
                 <tr><td colSpan={8} className="text-center py-12"><Receipt className="w-12 h-12 text-secondary-300 mx-auto mb-4" /><p className="text-secondary-500">No Invoices found</p></td></tr>
               ) : invoices.map((inv) => (
                 <tr key={inv.id} className="hover:bg-secondary-50">
-                  <td className="font-medium text-primary-600">{inv.invoice_number}</td>
+                  <td className="font-medium text-primary-600">
+                    <button
+                      onClick={() => handleView(inv.id)}
+                      className="text-primary-600 hover:underline"
+                    >
+                      {inv.invoice_number}
+                    </button>
+                  </td>
                   <td><span className="badge badge-secondary">{inv.invoice_type}</span></td>
                   <td className="max-w-[150px] truncate"><span className="truncate">{inv.seller_name || 'N/A'}</span></td>
                   <td className="max-w-[150px] truncate"><span className="truncate">{inv.buyer_name || 'N/A'}</span></td>
